@@ -1,8 +1,11 @@
 package com.trellis.viewer;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.View;
 import android.widget.TextView;
 
@@ -61,6 +64,7 @@ public class BasketActivity extends AppCompatActivity {
 
         basket = findViewById(R.id.basket);
         status = findViewById(R.id.status);
+        basket.setImageLoader(this::loadImage);
     }
 
     @Override protected void onResume() {
@@ -101,6 +105,25 @@ public class BasketActivity extends AppCompatActivity {
                     basket.setCards(result);
                 }
             });
+        });
+    }
+
+    /** Fetch an image card's picture off-thread, decode it, and hand it to the view. */
+    private void loadImage(long cardId, int index) {
+        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
+        io.execute(() -> {
+            Bitmap bmp = null;
+            try {
+                String b64 = api.imageBase64(nodeId, cardId, index);
+                if (!b64.isEmpty()) {
+                    byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
+                    bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                }
+            } catch (Exception ignored) {
+                // Leave the placeholder; a later poll/tap can retry.
+            }
+            final Bitmap result = bmp;
+            if (result != null) ui.post(() -> basket.setImage(cardId, result));
         });
     }
 

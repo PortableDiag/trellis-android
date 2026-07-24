@@ -1,10 +1,12 @@
 package com.trellis.viewer.ui;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.text.Layout;
@@ -23,7 +25,11 @@ import com.google.android.material.color.MaterialColors;
 import com.trellis.viewer.model.Card;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * A pannable, zoomable canvas that draws a node's cards at their real world
@@ -45,6 +51,15 @@ public class BasketView extends View {
 
     private final ScaleGestureDetector scaleDetector;
     private final GestureDetector gestureDetector;
+
+    /** Fetches an image card's primary image; the activity supplies it. */
+    public interface ImageLoader {
+        void request(long cardId, int index);
+    }
+
+    private ImageLoader imageLoader;
+    private final Map<Long, Bitmap> images = new HashMap<>();
+    private final Set<Long> requested = new HashSet<>();
 
     public BasketView(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
@@ -72,6 +87,18 @@ public class BasketView extends View {
         cards.clear();
         cards.addAll(newCards);
         invalidate();
+    }
+
+    public void setImageLoader(ImageLoader loader) {
+        this.imageLoader = loader;
+    }
+
+    /** Called by the activity when an image card's bitmap has been fetched. */
+    public void setImage(long cardId, Bitmap bmp) {
+        if (bmp != null) {
+            images.put(cardId, bmp);
+            invalidate();
+        }
     }
 
     public boolean isEmpty() {
@@ -127,7 +154,7 @@ public class BasketView extends View {
             case "checklist": drawChecklist(canvas, c, cx, cy, cw); break;
             case "table":     drawTable(canvas, c, cx, cy, cw); break;
             case "sketch":    drawSketch(canvas, c); break;
-            case "image":     drawImagePlaceholder(canvas, c, cx, cy, cw); break;
+            case "image":     drawImage(canvas, c, cx, cy, cw); break;
             case "code":      drawBody(canvas, c.body, cx, cy, cw, true); break;
             default:          drawBody(canvas, c.body, cx, cy, cw, false); break;
         }
@@ -209,11 +236,30 @@ public class BasketView extends View {
         }
     }
 
-    private void drawImagePlaceholder(Canvas canvas, Card c, float x, float y, float width) {
+    private void drawImage(Canvas canvas, Card c, float x, float y, float width) {
+        Bitmap bmp = images.get(c.id);
+        if (bmp != null) {
+            // Letterbox the bitmap into the content area, preserving aspect.
+            float availW = width, availH = (c.y + c.h) - y - 4;
+            if (availW > 0 && availH > 0) {
+                float bw = bmp.getWidth(), bh = bmp.getHeight();
+                float s = Math.min(availW / bw, availH / bh);
+                float dw = bw * s, dh = bh * s;
+                float dx = x + (availW - dw) / 2f, dy = y + (availH - dh) / 2f;
+                canvas.drawBitmap(bmp, new Rect(0, 0, (int) bw, (int) bh),
+                        new RectF(dx, dy, dx + dw, dy + dh), fill);
+            }
+            return;
+        }
+        // Not loaded yet — request it once, and show a placeholder meanwhile.
+        if (c.imageCount > 0 && imageLoader != null && !requested.contains(c.id)) {
+            requested.add(c.id);
+            imageLoader.request(c.id, 0);
+        }
         bodyPaint.setTextSize(12f);
         bodyPaint.setTypeface(Typeface.DEFAULT);
         String label = "🖼  " + (c.imageCount > 1 ? c.imageCount + " images"
-                : c.imageName.isEmpty() ? "image" : c.imageName);
+                : c.imageName.isEmpty() ? (c.imageCount == 0 ? "no image" : "loading…") : c.imageName);
         canvas.drawText(ellipsize(label, width, bodyPaint), x, y + 14, bodyPaint);
     }
 

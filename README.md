@@ -38,6 +38,5 @@ Two-axis appearance (dark/light × accent), matching the house style:
 - Tap a node → its **basket**, rendered as a pannable/zoomable canvas with cards at
   their real positions and accent colors: text/code bodies, checklists, tables
   (with cell colors), and sketches (vector strokes). Polls every 3 s for updates.
-- Image cards show as labelled placeholders — the desktop API doesn't expose image
-  pixels yet (only names/count). **Next:** an image-bytes endpoint on the desktop so
-  the app can show them, then live push (SSE) instead of polling.
+- Image cards render their picture, fetched from the desktop's image-bytes endpoint
+  (Trellis ≥ 0.29.0). **Next:** live push (SSE) instead of 3 s polling.

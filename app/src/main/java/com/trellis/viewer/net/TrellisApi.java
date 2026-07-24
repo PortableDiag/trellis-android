@@ -56,6 +56,12 @@ public class TrellisApi {
         return new JSONObject(get("/nodes/" + id));
     }
 
+    /** GET an image card's image bytes (base64) — {@code images/{idx}}. */
+    public String imageBase64(long node, long card, int idx) throws IOException, JSONException {
+        JSONObject o = new JSONObject(get("/nodes/" + node + "/cards/" + card + "/images/" + idx));
+        return o.optString("base64", "");
+    }
+
     /** GET /health — succeeds (no auth) if a Trellis server is reachable. */
     public boolean health() {
         try {
