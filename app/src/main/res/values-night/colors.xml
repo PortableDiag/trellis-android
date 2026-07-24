@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== Ocean (blue) — dark values. ===== -->
+    <color name="primary">#AEC6FF</color>
+    <color name="on_primary">#002E69</color>
+    <color name="primary_container">#274777</color>
+    <color name="on_primary_container">#D8E2FF</color>
+    <color name="secondary">#BEC6DC</color>
+    <color name="background">#0E1014</color>
+    <color name="surface">#16181D</color>
+    <color name="surface_variant">#262A33</color>
+    <color name="surface_container">#1D2026</color>
+    <color name="on_surface">#E3E5EA</color>
+    <color name="on_surface_variant">#C4C6D0</color>
+    <color name="outline">#3A3E46</color>
+
+    <!-- ===== Terminal (neon green on near-black, monospace). Dark values. ===== -->
+    <color name="term_primary">#33FF77</color>
+    <color name="term_on_primary">#00210C</color>
+    <color name="term_primary_container">#00391B</color>
+    <color name="term_on_primary_container">#79FFA3</color>
+    <color name="term_secondary">#79C98F</color>
+    <color name="term_background">#000300</color>
+    <color name="term_surface">#06120A</color>
+    <color name="term_surface_variant">#11241A</color>
+    <color name="term_surface_container">#0B1B11</color>
+    <color name="term_on_surface">#4DFF85</color>
+    <color name="term_on_surface_variant">#37B45F</color>
+    <color name="term_outline">#1E5B34</color>
+
+    <!-- ===== Trellis (indigo/slate — the desktop signature). Dark values. ===== -->
+    <color name="trel_primary">#A5B4FC</color>
+    <color name="trel_on_primary">#1E1B4B</color>
+    <color name="trel_primary_container">#312E81</color>
+    <color name="trel_on_primary_container">#E0E0FF</color>
+    <color name="trel_secondary">#C3C4DD</color>
+    <color name="trel_background">#0F1117</color>
+    <color name="trel_surface">#171922</color>
+    <color name="trel_surface_variant">#2A2C39</color>
+    <color name="trel_surface_container">#1D1F2A</color>
+    <color name="trel_on_surface">#E4E4EC</color>
+    <color name="trel_on_surface_variant">#C6C5D4</color>
+    <color name="trel_outline">#3C3E4C</color>
+</resources>

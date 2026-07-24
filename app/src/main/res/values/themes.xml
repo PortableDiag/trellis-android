@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ocean (blue) — the default accent. Base theme. -->
+    <style name="Theme.Trellis" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorSurfaceVariant">@color/surface_variant</item>
+        <item name="colorSurfaceContainer">@color/surface_container</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+
+    <!-- Terminal — neon green, monospace. -->
+    <style name="Theme.Trellis.Terminal" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/term_primary</item>
+        <item name="colorOnPrimary">@color/term_on_primary</item>
+        <item name="colorPrimaryContainer">@color/term_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/term_on_primary_container</item>
+        <item name="colorSecondary">@color/term_secondary</item>
+        <item name="android:colorBackground">@color/term_background</item>
+        <item name="colorSurface">@color/term_surface</item>
+        <item name="colorSurfaceVariant">@color/term_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/term_surface_container</item>
+        <item name="colorOnSurface">@color/term_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/term_on_surface_variant</item>
+        <item name="colorOutline">@color/term_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/term_background</item>
+        <item name="fontFamily">monospace</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
+    <!-- Trellis — indigo/slate, the desktop signature look. -->
+    <style name="Theme.Trellis.Slate" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/trel_primary</item>
+        <item name="colorOnPrimary">@color/trel_on_primary</item>
+        <item name="colorPrimaryContainer">@color/trel_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/trel_on_primary_container</item>
+        <item name="colorSecondary">@color/trel_secondary</item>
+        <item name="android:colorBackground">@color/trel_background</item>
+        <item name="colorSurface">@color/trel_surface</item>
+        <item name="colorSurfaceVariant">@color/trel_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/trel_surface_container</item>
+        <item name="colorOnSurface">@color/trel_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/trel_on_surface_variant</item>
+        <item name="colorOutline">@color/trel_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/trel_background</item>
+    </style>
+</resources>
