@@ -101,6 +101,16 @@ public class BasketView extends View {
         }
     }
 
+    /**
+     * Forget which images have been requested (but keep already-loaded ones), so
+     * the next draw re-requests any that haven't loaded. Call after each refresh:
+     * cards whose image failed (e.g. the desktop endpoint wasn't there yet) get
+     * retried, while loaded images stay cached and aren't re-fetched.
+     */
+    public void clearPendingImageRequests() {
+        requested.clear();
+    }
+
     public boolean isEmpty() {
         return cards.isEmpty();
     }

@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.trellis.viewer.model.Card;
+import com.trellis.viewer.net.LiveWaiter;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
 import com.trellis.viewer.ui.BasketView;
@@ -32,6 +33,7 @@ public class BasketActivity extends AppCompatActivity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private final LiveWaiter waiter = new LiveWaiter();
 
     private BasketView basket;
     private TextView status;
@@ -71,12 +73,14 @@ public class BasketActivity extends AppCompatActivity {
         super.onResume();
         polling = true;
         ui.post(poll);
+        waiter.start(this, ui, this::load); // instant updates on change
     }
 
     @Override protected void onPause() {
         super.onPause();
         polling = false;
         ui.removeCallbacks(poll);
+        waiter.stop();
     }
 
     private void load() {
@@ -102,6 +106,7 @@ public class BasketActivity extends AppCompatActivity {
                 } else {
                     status.setVisibility(View.GONE);
                     basket.setVisibility(View.VISIBLE);
+                    basket.clearPendingImageRequests(); // retry any images that hadn't loaded
                     basket.setCards(result);
                 }
             });

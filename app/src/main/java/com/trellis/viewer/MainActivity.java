@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.trellis.viewer.model.TreeNode;
+import com.trellis.viewer.net.LiveWaiter;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
 
@@ -32,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private final LiveWaiter waiter = new LiveWaiter();
 
     private SwipeRefreshLayout refresh;
     private RecyclerView list;
@@ -59,6 +61,12 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onResume() {
         super.onResume();
         load();
+        waiter.start(this, ui, this::load); // refresh the tree on any change
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        waiter.stop();
     }
 
     @Override public boolean onCreateOptionsMenu(Menu menu) {

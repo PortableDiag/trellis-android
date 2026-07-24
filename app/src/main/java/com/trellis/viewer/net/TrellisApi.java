@@ -27,10 +27,15 @@ public class TrellisApi {
 
     /** GET a path under the API base (e.g. "/tree") and return the raw body. */
     public String get(String path) throws IOException {
+        return get(path, 6000);
+    }
+
+    /** GET with a custom read timeout — used for the long-poll /wait endpoint. */
+    public String get(String path, int readTimeoutMs) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(base + path).openConnection();
         try {
             c.setConnectTimeout(4000);
-            c.setReadTimeout(6000);
+            c.setReadTimeout(readTimeoutMs);
             c.setRequestMethod("GET");
             if (key != null && !key.isEmpty()) {
                 c.setRequestProperty("X-API-Key", key);
@@ -60,6 +65,16 @@ public class TrellisApi {
     public String imageBase64(long node, long card, int idx) throws IOException, JSONException {
         JSONObject o = new JSONObject(get("/nodes/" + node + "/cards/" + card + "/images/" + idx));
         return o.optString("base64", "");
+    }
+
+    /**
+     * Long-poll for a document change. Blocks (server-side, up to ~25 s) until the
+     * revision differs from {@code rev}, then returns {@code {rev, changed}}. Uses a
+     * long read timeout to match. Throws if the server doesn't support /wait (older
+     * desktop) or the network drops — callers back off and retry.
+     */
+    public JSONObject waitForChange(long rev) throws IOException, JSONException {
+        return new JSONObject(get("/wait?rev=" + rev, 30000));
     }
 
     /** GET /health — succeeds (no auth) if a Trellis server is reachable. */
