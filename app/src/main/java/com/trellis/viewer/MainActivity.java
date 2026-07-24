@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
+        adapter.setOnNodeClick(this::openBasket);
         list.setAdapter(adapter);
 
         refresh = findViewById(R.id.refresh);
@@ -117,10 +118,26 @@ public class MainActivity extends AppCompatActivity {
         status.setText(msg);
     }
 
+    private void openBasket(TreeNode n) {
+        Intent i = new Intent(this, BasketActivity.class);
+        i.putExtra(BasketActivity.EXTRA_NODE_ID, n.id);
+        i.putExtra(BasketActivity.EXTRA_NODE_TITLE, n.title);
+        startActivity(i);
+    }
+
     // ---- Adapter -------------------------------------------------------------
+
+    interface OnNodeClick {
+        void onClick(TreeNode node);
+    }
 
     private static class NodeAdapter extends RecyclerView.Adapter<NodeVH> {
         private final List<TreeNode> items = new ArrayList<>();
+        private OnNodeClick listener;
+
+        void setOnNodeClick(OnNodeClick l) {
+            this.listener = l;
+        }
 
         void setItems(List<TreeNode> newItems) {
             items.clear();
@@ -135,7 +152,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override public void onBindViewHolder(@NonNull NodeVH h, int position) {
-            h.bind(items.get(position));
+            TreeNode item = items.get(position);
+            h.bind(item);
+            h.itemView.setOnClickListener(v -> {
+                if (listener != null) listener.onClick(item);
+            });
         }
 
         @Override public int getItemCount() {

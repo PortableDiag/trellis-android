@@ -27,6 +27,10 @@
         <activity
             android:name=".SettingsActivity"
             android:exported="false"/>
+
+        <activity
+            android:name=".BasketActivity"
+            android:exported="false"/>
     </application>
 
 </manifest>

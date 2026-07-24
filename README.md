@@ -34,5 +34,10 @@ Two-axis appearance (dark/light × accent), matching the house style:
 
 ## Status
 
-Scaffold: connection settings + node-tree list with pull-to-refresh. Next: render
-each node's basket (cards at their real positions), then live push updates.
+- Connection settings + node-tree list with pull-to-refresh.
+- Tap a node → its **basket**, rendered as a pannable/zoomable canvas with cards at
+  their real positions and accent colors: text/code bodies, checklists, tables
+  (with cell colors), and sketches (vector strokes). Polls every 3 s for updates.
+- Image cards show as labelled placeholders — the desktop API doesn't expose image
+  pixels yet (only names/count). **Next:** an image-bytes endpoint on the desktop so
+  the app can show them, then live push (SSE) instead of polling.
