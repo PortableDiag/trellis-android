@@ -192,6 +192,7 @@ public class BasketActivity extends AppCompatActivity {
         Intent i = new Intent(this, ImageViewerActivity.class);
         i.putExtra(ImageViewerActivity.EXTRA_NODE_ID, nodeId);
         i.putExtra(ImageViewerActivity.EXTRA_CARD_ID, card.id);
+        i.putExtra(ImageViewerActivity.EXTRA_COUNT, Math.max(1, card.imageCount));
         i.putExtra(ImageViewerActivity.EXTRA_INDEX, 0);
         i.putExtra(ImageViewerActivity.EXTRA_TITLE,
                 card.title.isEmpty() ? card.imageName : card.title);

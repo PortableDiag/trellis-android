@@ -39,7 +39,8 @@ Two-axis appearance (dark/light × accent), matching the house style:
   their real positions and accent colors: text/code bodies, checklists, tables
   (with cell colors), and sketches (vector strokes). Polls every 3 s for updates.
 - Image cards render their picture (Trellis ≥ 0.29.0); **tap one to open a
-  full-screen viewer** with pinch-to-zoom, pan, and double-tap-to-zoom.
+  full-screen viewer** with pinch-to-zoom, pan, double-tap-to-zoom, and
+  **swipe between all images** on a multi-image card.
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
