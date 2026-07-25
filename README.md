@@ -42,4 +42,7 @@ Two-axis appearance (dark/light × accent), matching the house style:
   full-screen viewer** with pinch-to-zoom, pan, and double-tap-to-zoom.
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
+- **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
+  or a **picked image** as a card in that node. (Read + capture; other edits are
+  still done on the desktop.)
 - Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).

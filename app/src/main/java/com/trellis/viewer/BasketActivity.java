@@ -3,15 +3,27 @@ package com.trellis.viewer;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.FileProvider;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.InputStream;
 
 import com.trellis.viewer.model.Card;
 import com.trellis.viewer.net.LiveWaiter;
@@ -42,6 +54,10 @@ public class BasketActivity extends AppCompatActivity {
     private boolean polling;
     private volatile boolean loading;
 
+    private ActivityResultLauncher<PickVisualMediaRequest> pickImage;
+    private ActivityResultLauncher<Uri> takePhoto;
+    private Uri pendingPhotoUri;
+
     private final Runnable poll = new Runnable() {
         @Override public void run() {
             load();
@@ -69,6 +85,107 @@ public class BasketActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         basket.setImageLoader(this::loadImage);
         basket.setOnImageTap(this::openImageViewer);
+
+        pickImage = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(), uri -> {
+                    if (uri != null) uploadImage(uri, "Image");
+                });
+        takePhoto = registerForActivityResult(
+                new ActivityResultContracts.TakePicture(), ok -> {
+                    if (ok && pendingPhotoUri != null) uploadImage(pendingPhotoUri, "Photo");
+                });
+        findViewById(R.id.fab_add).setOnClickListener(v -> showAddMenu());
+    }
+
+    private void showAddMenu() {
+        new AlertDialog.Builder(this)
+                .setTitle("Add to this basket")
+                .setItems(new CharSequence[]{"Note", "Choose photo", "Take photo"}, (d, which) -> {
+                    if (which == 0) addNoteDialog();
+                    else if (which == 1) pickImage.launch(new PickVisualMediaRequest.Builder()
+                            .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                            .build());
+                    else launchCamera();
+                })
+                .show();
+    }
+
+    private void addNoteDialog() {
+        EditText input = new EditText(this);
+        input.setHint("Note");
+        input.setMinLines(3);
+        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        new AlertDialog.Builder(this)
+                .setTitle("New note")
+                .setView(input)
+                .setPositiveButton("Add", (d, w) -> {
+                    String text = input.getText().toString().trim();
+                    if (!text.isEmpty()) createCard(api -> api.createTextCard(nodeId, text), "Note added");
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void launchCamera() {
+        try {
+            File dir = new File(getCacheDir(), "captures");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            File f = new File(dir, "cap_" + System.currentTimeMillis() + ".jpg");
+            pendingPhotoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+            takePhoto.launch(pendingPhotoUri);
+        } catch (Exception e) {
+            toast("Couldn't start the camera: " + e.getMessage());
+        }
+    }
+
+    private void uploadImage(Uri uri, String name) {
+        byte[] bytes;
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while (in != null && (n = in.read(buf)) != -1) bos.write(buf, 0, n);
+            bytes = bos.toByteArray();
+        } catch (Exception e) {
+            toast("Couldn't read the image: " + e.getMessage());
+            return;
+        }
+        if (bytes.length == 0) {
+            toast("Empty image.");
+            return;
+        }
+        createCard(api -> api.createImageCard(nodeId, name, bytes), "Image added");
+    }
+
+    private interface CardCreate {
+        void run(TrellisApi api) throws Exception;
+    }
+
+    /** Run a create call off-thread, then refresh the basket. */
+    private void createCard(CardCreate op, String okMsg) {
+        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
+        io.execute(() -> {
+            String err = null;
+            try {
+                op.run(api);
+            } catch (Exception e) {
+                err = e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+            final String error = err;
+            ui.post(() -> {
+                if (error == null) {
+                    toast(okMsg);
+                    load();
+                } else {
+                    toast("Failed: " + error);
+                }
+            });
+        });
+    }
+
+    private void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
     private void openImageViewer(Card card) {

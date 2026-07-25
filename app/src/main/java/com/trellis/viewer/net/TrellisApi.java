@@ -3,10 +3,13 @@ package com.trellis.viewer.net;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.util.Base64;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -81,6 +84,46 @@ public class TrellisApi {
      */
     public JSONObject waitForChange(long rev) throws IOException, JSONException {
         return new JSONObject(get("/wait?rev=" + rev, 30000));
+    }
+
+    /** POST a JSON body to a path and return the parsed response. */
+    public JSONObject post(String path, JSONObject body) throws IOException, JSONException {
+        HttpURLConnection c = (HttpURLConnection) new URL(base + path).openConnection();
+        try {
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(10000);
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json");
+            if (key != null && !key.isEmpty()) {
+                c.setRequestProperty("X-API-Key", key);
+            }
+            try (OutputStream os = c.getOutputStream()) {
+                os.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int code = c.getResponseCode();
+            String resp = readAll(code < 400 ? c.getInputStream() : c.getErrorStream());
+            if (code >= 400) {
+                throw new IOException("HTTP " + code + (resp.isEmpty() ? "" : ": " + resp));
+            }
+            return new JSONObject(resp);
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    /** Create a text card in a node. */
+    public JSONObject createTextCard(long node, String body) throws IOException, JSONException {
+        return post("/nodes/" + node + "/cards",
+                new JSONObject().put("kind", "text").put("body", body));
+    }
+
+    /** Create an image card in a node from raw image bytes. */
+    public JSONObject createImageCard(long node, String name, byte[] bytes)
+            throws IOException, JSONException {
+        String b64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+        return post("/nodes/" + node + "/cards",
+                new JSONObject().put("kind", "image").put("title", name).put("image_base64", b64));
     }
 
     /** GET /health — succeeds (no auth) if a Trellis server is reachable. */
