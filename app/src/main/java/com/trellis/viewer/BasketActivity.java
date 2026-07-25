@@ -1,5 +1,6 @@
 package com.trellis.viewer;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -67,6 +68,17 @@ public class BasketActivity extends AppCompatActivity {
         basket = findViewById(R.id.basket);
         status = findViewById(R.id.status);
         basket.setImageLoader(this::loadImage);
+        basket.setOnImageTap(this::openImageViewer);
+    }
+
+    private void openImageViewer(Card card) {
+        Intent i = new Intent(this, ImageViewerActivity.class);
+        i.putExtra(ImageViewerActivity.EXTRA_NODE_ID, nodeId);
+        i.putExtra(ImageViewerActivity.EXTRA_CARD_ID, card.id);
+        i.putExtra(ImageViewerActivity.EXTRA_INDEX, 0);
+        i.putExtra(ImageViewerActivity.EXTRA_TITLE,
+                card.title.isEmpty() ? card.imageName : card.title);
+        startActivity(i);
     }
 
     @Override protected void onResume() {

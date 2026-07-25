@@ -35,6 +35,11 @@
         <activity
             android:name=".SearchActivity"
             android:exported="false"/>
+
+        <activity
+            android:name=".ImageViewerActivity"
+            android:theme="@style/Theme.Trellis.Viewer"
+            android:exported="false"/>
     </application>
 
 </manifest>

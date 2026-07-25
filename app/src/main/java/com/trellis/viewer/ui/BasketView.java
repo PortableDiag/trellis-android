@@ -57,7 +57,13 @@ public class BasketView extends View {
         void request(long cardId, int index);
     }
 
+    /** Notified when an image card is tapped (to open the full-screen viewer). */
+    public interface OnImageTap {
+        void tapped(Card card);
+    }
+
     private ImageLoader imageLoader;
+    private OnImageTap imageTapListener;
     private final Map<Long, Bitmap> images = new HashMap<>();
     private final Set<Long> requested = new HashSet<>();
 
@@ -91,6 +97,23 @@ public class BasketView extends View {
 
     public void setImageLoader(ImageLoader loader) {
         this.imageLoader = loader;
+    }
+
+    public void setOnImageTap(OnImageTap listener) {
+        this.imageTapListener = listener;
+    }
+
+    /** Topmost card under a screen point, or null. Later-drawn cards win (on top). */
+    private Card cardAt(float screenX, float screenY) {
+        float wx = (screenX - offsetX) / scale;
+        float wy = (screenY - offsetY) / scale;
+        for (int i = cards.size() - 1; i >= 0; i--) {
+            Card c = cards.get(i);
+            if (wx >= c.x && wx <= c.x + c.w && wy >= c.y && wy <= c.y + c.h) {
+                return c;
+            }
+        }
+        return null;
     }
 
     /** Called by the activity when an image card's bitmap has been fetched. */
@@ -334,6 +357,15 @@ public class BasketView extends View {
             fitToContent();
             invalidate();
             return true;
+        }
+
+        @Override public boolean onSingleTapConfirmed(@NonNull MotionEvent e) {
+            Card c = cardAt(e.getX(), e.getY());
+            if (c != null && "image".equals(c.kind) && imageTapListener != null) {
+                imageTapListener.tapped(c);
+                return true;
+            }
+            return false;
         }
     }
 }

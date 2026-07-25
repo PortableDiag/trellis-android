@@ -40,6 +40,13 @@
         <item name="android:fontFamily">monospace</item>
     </style>
 
+    <!-- Full-screen image viewer: black background, no action bar. -->
+    <style name="Theme.Trellis.Viewer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+    </style>
+
     <!-- Trellis — indigo/slate, the desktop signature look. -->
     <style name="Theme.Trellis.Slate" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/trel_primary</item>
