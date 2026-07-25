@@ -67,6 +67,12 @@ public class TrellisApi {
         return o.optString("base64", "");
     }
 
+    /** GET /search?q= — full-text search; returns {@code {hits:[{node,node_title,snippet}]}}. */
+    public JSONObject search(String query) throws IOException, JSONException {
+        String q = java.net.URLEncoder.encode(query, "UTF-8");
+        return new JSONObject(get("/search?q=" + q));
+    }
+
     /**
      * Long-poll for a document change. Blocks (server-side, up to ~25 s) until the
      * revision differs from {@code rev}, then returns {@code {rev, changed}}. Uses a

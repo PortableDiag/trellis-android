@@ -39,4 +39,7 @@ Two-axis appearance (dark/light × accent), matching the house style:
   their real positions and accent colors: text/code bodies, checklists, tables
   (with cell colors), and sketches (vector strokes). Polls every 3 s for updates.
 - Image cards render their picture, fetched from the desktop's image-bytes endpoint
-  (Trellis ≥ 0.29.0). **Next:** live push (SSE) instead of 3 s polling.
+  (Trellis ≥ 0.29.0).
+- **Search** (toolbar) — full-text across every node title and card; tap a hit to
+  open that node's basket.
+- Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).
