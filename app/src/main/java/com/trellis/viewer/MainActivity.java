@@ -40,6 +40,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView status;
     private final NodeAdapter adapter = new NodeAdapter();
 
+    /** The parsed tree (roots), kept so we can re-flatten as branches fold. */
+    private List<TreeNode> roots = new ArrayList<>();
+    /** Ids of collapsed nodes, kept across live refreshes so folds survive. */
+    private final java.util.Set<Long> collapsed = new java.util.HashSet<>();
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(com.trellis.viewer.util.ThemePrefs.themeRes(this));
         super.onCreate(savedInstanceState);
@@ -52,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
         list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
         adapter.setOnNodeClick(this::openBasket);
+        adapter.setOnToggle(this::toggleNode);
         list.setAdapter(adapter);
 
         refresh = findViewById(R.id.refresh);
@@ -85,6 +91,15 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_refresh) {
             load();
             return true;
+        } else if (id == R.id.action_collapse_all) {
+            collapsed.clear();
+            TreeNode.collectParentIds(roots, collapsed);
+            rebuildVisible();
+            return true;
+        } else if (id == R.id.action_expand_all) {
+            collapsed.clear();
+            rebuildVisible();
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -98,15 +113,15 @@ public class MainActivity extends AppCompatActivity {
         refresh.setRefreshing(true);
         final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
         io.execute(() -> {
-            List<TreeNode> nodes;
+            List<TreeNode> parsed;
             String error = null;
             try {
-                nodes = TreeNode.flatten(TreeNode.parseTree(api.tree()));
+                parsed = TreeNode.parseTree(api.tree());
             } catch (Exception e) {
-                nodes = new ArrayList<>();
+                parsed = new ArrayList<>();
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
-            final List<TreeNode> result = nodes;
+            final List<TreeNode> result = parsed;
             final String err = error;
             ui.post(() -> {
                 refresh.setRefreshing(false);
@@ -117,10 +132,28 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     status.setVisibility(View.GONE);
                     list.setVisibility(View.VISIBLE);
-                    adapter.setItems(result);
+                    roots = result;
+                    rebuildVisible();
                 }
             });
         });
+    }
+
+    /** Apply the saved folds to the current tree and show the visible rows. */
+    private void rebuildVisible() {
+        TreeNode.applyCollapsed(roots, collapsed);
+        adapter.setItems(TreeNode.flattenVisible(roots));
+    }
+
+    /** Fold or unfold one node (from its row arrow), remembering the choice. */
+    private void toggleNode(TreeNode n) {
+        if (!n.hasChildren()) return;
+        if (collapsed.contains(n.id)) {
+            collapsed.remove(n.id);
+        } else {
+            collapsed.add(n.id);
+        }
+        rebuildVisible();
     }
 
     private void showStatus(String msg) {
@@ -145,9 +178,14 @@ public class MainActivity extends AppCompatActivity {
     private static class NodeAdapter extends RecyclerView.Adapter<NodeVH> {
         private final List<TreeNode> items = new ArrayList<>();
         private OnNodeClick listener;
+        private OnNodeClick toggle;
 
         void setOnNodeClick(OnNodeClick l) {
             this.listener = l;
+        }
+
+        void setOnToggle(OnNodeClick t) {
+            this.toggle = t;
         }
 
         void setItems(List<TreeNode> newItems) {
@@ -168,6 +206,9 @@ public class MainActivity extends AppCompatActivity {
             h.itemView.setOnClickListener(v -> {
                 if (listener != null) listener.onClick(item);
             });
+            h.arrow.setOnClickListener(v -> {
+                if (toggle != null) toggle.onClick(item);
+            });
         }
 
         @Override public int getItemCount() {
@@ -176,11 +217,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static class NodeVH extends RecyclerView.ViewHolder {
+        final TextView arrow;
         final TextView title;
         final TextView meta;
 
         NodeVH(@NonNull View itemView) {
             super(itemView);
+            arrow = itemView.findViewById(R.id.node_arrow);
             title = itemView.findViewById(R.id.node_title);
             meta = itemView.findViewById(R.id.node_meta);
         }
@@ -189,6 +232,16 @@ public class MainActivity extends AppCompatActivity {
             int pad = (int) (n.depth * 20 * itemView.getResources().getDisplayMetrics().density);
             itemView.setPadding(pad + itemView.getPaddingRight(), itemView.getPaddingTop(),
                     itemView.getPaddingRight(), itemView.getPaddingBottom());
+            // Leaf nodes keep the arrow's width (so titles line up) but show nothing.
+            if (n.hasChildren()) {
+                arrow.setText(n.expanded ? "▾" : "▸");
+                arrow.setVisibility(View.VISIBLE);
+                arrow.setClickable(true);
+            } else {
+                arrow.setText("");
+                arrow.setVisibility(View.INVISIBLE);
+                arrow.setClickable(false);
+            }
             title.setText(n.title.isEmpty() ? "(untitled)" : n.title);
             meta.setText(n.cardCount == 1 ? "1 card" : n.cardCount + " cards");
         }

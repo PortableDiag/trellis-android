@@ -16,6 +16,12 @@ public class TreeNode {
     public final int cardCount;
     public final int depth;
     public final List<TreeNode> children = new ArrayList<>();
+    /** Whether this node's children are shown. Runtime-only (UI state). */
+    public boolean expanded = true;
+
+    public boolean hasChildren() {
+        return !children.isEmpty();
+    }
 
     private TreeNode(long id, String title, int cardCount, int depth) {
         this.id = id;
@@ -46,17 +52,48 @@ public class TreeNode {
         return out;
     }
 
-    /** Depth-first flatten for a flat list/RecyclerView (indentation via {@link #depth}). */
-    public static List<TreeNode> flatten(List<TreeNode> roots) {
+    /**
+     * Depth-first flatten for the RecyclerView, honoring {@link #expanded}: a
+     * collapsed node's subtree is skipped. Indentation via {@link #depth}.
+     */
+    public static List<TreeNode> flattenVisible(List<TreeNode> roots) {
         List<TreeNode> out = new ArrayList<>();
-        addRecursive(roots, out);
+        addVisible(roots, out);
         return out;
     }
 
-    private static void addRecursive(List<TreeNode> nodes, List<TreeNode> out) {
+    private static void addVisible(List<TreeNode> nodes, List<TreeNode> out) {
         for (TreeNode n : nodes) {
             out.add(n);
-            addRecursive(n.children, out);
+            if (n.expanded) {
+                addVisible(n.children, out);
+            }
+        }
+    }
+
+    /** Set {@link #expanded} on every node in the forest (Expand/Collapse all). */
+    public static void setExpandedAll(List<TreeNode> roots, boolean expanded) {
+        for (TreeNode n : roots) {
+            n.expanded = expanded;
+            setExpandedAll(n.children, expanded);
+        }
+    }
+
+    /** Apply a set of collapsed node ids to a freshly parsed tree. */
+    public static void applyCollapsed(List<TreeNode> roots, java.util.Set<Long> collapsed) {
+        for (TreeNode n : roots) {
+            n.expanded = !collapsed.contains(n.id);
+            applyCollapsed(n.children, collapsed);
+        }
+    }
+
+    /** Collect the ids of every node that has children (i.e. is collapsible). */
+    public static void collectParentIds(List<TreeNode> roots, java.util.Set<Long> out) {
+        for (TreeNode n : roots) {
+            if (n.hasChildren()) {
+                out.add(n.id);
+            }
+            collectParentIds(n.children, out);
         }
     }
 }
