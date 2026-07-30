@@ -16,8 +16,9 @@ public class TreeNode {
     public final int cardCount;
     public final int depth;
     public final List<TreeNode> children = new ArrayList<>();
-    /** Whether this node's children are shown. Runtime-only (UI state). */
-    public boolean expanded = true;
+    /** Whether this node's children are shown. Runtime-only UI state, set from
+     *  the persisted expanded-set; collapsed by default. */
+    public boolean expanded = false;
 
     public boolean hasChildren() {
         return !children.isEmpty();
@@ -71,19 +72,16 @@ public class TreeNode {
         }
     }
 
-    /** Set {@link #expanded} on every node in the forest (Expand/Collapse all). */
-    public static void setExpandedAll(List<TreeNode> roots, boolean expanded) {
+    /**
+     * Apply the saved set of expanded node ids to a freshly parsed tree. Nodes
+     * are **collapsed by default** — a node is open only if its id is in
+     * {@code expandedIds} — so first launch and any newly-appeared node start
+     * folded, which keeps a big tree navigable on a phone.
+     */
+    public static void applyExpanded(List<TreeNode> roots, java.util.Set<Long> expandedIds) {
         for (TreeNode n : roots) {
-            n.expanded = expanded;
-            setExpandedAll(n.children, expanded);
-        }
-    }
-
-    /** Apply a set of collapsed node ids to a freshly parsed tree. */
-    public static void applyCollapsed(List<TreeNode> roots, java.util.Set<Long> collapsed) {
-        for (TreeNode n : roots) {
-            n.expanded = !collapsed.contains(n.id);
-            applyCollapsed(n.children, collapsed);
+            n.expanded = expandedIds.contains(n.id);
+            applyExpanded(n.children, expandedIds);
         }
     }
 

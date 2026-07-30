@@ -35,10 +35,11 @@ Two-axis appearance (dark/light × accent), matching the house style:
 ## Status
 
 - Connection settings + node-tree list with pull-to-refresh.
-- **Collapse / expand nodes** — tap the ▸/▾ arrow on a parent to fold or unfold
-  its children; **Collapse all** / **Expand all** in the toolbar menu handle the
-  whole tree at once. Folds are remembered across live refreshes, so big trees
-  (years → months → days) stay navigable.
+- **Collapse / expand nodes** — the tree starts **collapsed** (just the top
+  level), so a big archive is navigable at a glance on a phone. Tap the ▸/▾ arrow
+  on a parent to unfold it; **Collapse all** / **Expand all** in the toolbar menu
+  handle the whole tree. Your open/closed state is **saved** — it persists across
+  live refreshes and app restarts.
 - Tap a node → its **basket**, rendered as a pannable/zoomable canvas with cards at
   their real positions and accent colors: text/code bodies, checklists, tables
   (with cell colors), and sketches (vector strokes). Polls every 3 s for updates.

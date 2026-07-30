@@ -42,8 +42,12 @@ public class MainActivity extends AppCompatActivity {
 
     /** The parsed tree (roots), kept so we can re-flatten as branches fold. */
     private List<TreeNode> roots = new ArrayList<>();
-    /** Ids of collapsed nodes, kept across live refreshes so folds survive. */
-    private final java.util.Set<Long> collapsed = new java.util.HashSet<>();
+    /** Ids of *expanded* nodes (collapsed is the default). Persisted, so folds
+     *  survive both live refreshes and app restarts. */
+    private final java.util.Set<Long> expandedIds = new java.util.HashSet<>();
+
+    private static final String PREFS = "trellis_settings";
+    private static final String K_EXPANDED = "expanded_nodes";
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(com.trellis.viewer.util.ThemePrefs.themeRes(this));
@@ -62,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
 
         refresh = findViewById(R.id.refresh);
         refresh.setOnRefreshListener(this::load);
+
+        loadExpandedState();
     }
 
     @Override protected void onResume() {
@@ -92,12 +98,13 @@ public class MainActivity extends AppCompatActivity {
             load();
             return true;
         } else if (id == R.id.action_collapse_all) {
-            collapsed.clear();
-            TreeNode.collectParentIds(roots, collapsed);
+            expandedIds.clear();
+            saveExpandedState();
             rebuildVisible();
             return true;
         } else if (id == R.id.action_expand_all) {
-            collapsed.clear();
+            TreeNode.collectParentIds(roots, expandedIds);
+            saveExpandedState();
             rebuildVisible();
             return true;
         }
@@ -141,19 +148,45 @@ public class MainActivity extends AppCompatActivity {
 
     /** Apply the saved folds to the current tree and show the visible rows. */
     private void rebuildVisible() {
-        TreeNode.applyCollapsed(roots, collapsed);
+        TreeNode.applyExpanded(roots, expandedIds);
         adapter.setItems(TreeNode.flattenVisible(roots));
     }
 
     /** Fold or unfold one node (from its row arrow), remembering the choice. */
     private void toggleNode(TreeNode n) {
         if (!n.hasChildren()) return;
-        if (collapsed.contains(n.id)) {
-            collapsed.remove(n.id);
+        if (expandedIds.contains(n.id)) {
+            expandedIds.remove(n.id);
         } else {
-            collapsed.add(n.id);
+            expandedIds.add(n.id);
         }
+        saveExpandedState();
         rebuildVisible();
+    }
+
+    // ---- Persisted fold state -----------------------------------------------
+
+    private void loadExpandedState() {
+        java.util.Set<String> saved = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getStringSet(K_EXPANDED, null);
+        expandedIds.clear();
+        if (saved != null) {
+            for (String s : saved) {
+                try {
+                    expandedIds.add(Long.parseLong(s));
+                } catch (NumberFormatException ignored) {
+                    // skip a malformed id rather than fail to load the tree
+                }
+            }
+        }
+    }
+
+    private void saveExpandedState() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Long id : expandedIds) {
+            out.add(String.valueOf(id));
+        }
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putStringSet(K_EXPANDED, out).apply();
     }
 
     private void showStatus(String msg) {
