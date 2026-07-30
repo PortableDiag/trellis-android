@@ -258,7 +258,7 @@ public class BasketActivity extends AppCompatActivity {
                 // Leave the placeholder; a later poll/tap can retry.
             }
             final Bitmap result = bmp;
-            if (result != null) ui.post(() -> basket.setImage(cardId, result));
+            if (result != null) ui.post(() -> basket.setImage(cardId, index, result));
         });
     }
 

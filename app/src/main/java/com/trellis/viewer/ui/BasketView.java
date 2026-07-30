@@ -24,6 +24,8 @@ import androidx.annotation.Nullable;
 import com.google.android.material.color.MaterialColors;
 import com.trellis.viewer.model.Card;
 
+import io.noties.markwon.Markwon;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,7 +54,7 @@ public class BasketView extends View {
     private final ScaleGestureDetector scaleDetector;
     private final GestureDetector gestureDetector;
 
-    /** Fetches an image card's primary image; the activity supplies it. */
+    /** Fetches one of an image card's images by index; the activity supplies it. */
     public interface ImageLoader {
         void request(long cardId, int index);
     }
@@ -64,8 +66,13 @@ public class BasketView extends View {
 
     private ImageLoader imageLoader;
     private OnImageTap imageTapListener;
-    private final Map<Long, Bitmap> images = new HashMap<>();
-    private final Set<Long> requested = new HashSet<>();
+    /** Loaded bitmaps per card, keyed by image index (image cards hold several). */
+    private final Map<Long, Map<Integer, Bitmap>> images = new HashMap<>();
+    /** Which (card,index) images have been requested, as "cardId:index" keys. */
+    private final Set<String> requested = new HashSet<>();
+    /** Lazily-created CommonMark renderer + a per-card cache of rendered bodies. */
+    private Markwon markwon;
+    private final Map<Long, CharSequence> mdCache = new HashMap<>();
 
     public BasketView(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
@@ -92,6 +99,7 @@ public class BasketView extends View {
     public void setCards(List<Card> newCards) {
         cards.clear();
         cards.addAll(newCards);
+        mdCache.clear(); // bodies may have changed on a live update
         invalidate();
     }
 
@@ -116,12 +124,16 @@ public class BasketView extends View {
         return null;
     }
 
-    /** Called by the activity when an image card's bitmap has been fetched. */
-    public void setImage(long cardId, Bitmap bmp) {
-        if (bmp != null) {
-            images.put(cardId, bmp);
-            invalidate();
+    /** Called by the activity when an image card's bitmap (at `index`) has loaded. */
+    public void setImage(long cardId, int index, Bitmap bmp) {
+        if (bmp == null) return;
+        Map<Integer, Bitmap> m = images.get(cardId);
+        if (m == null) {
+            m = new HashMap<>();
+            images.put(cardId, m);
         }
+        m.put(index, bmp);
+        invalidate();
     }
 
     /**
@@ -189,7 +201,7 @@ public class BasketView extends View {
             case "sketch":    drawSketch(canvas, c); break;
             case "image":     drawImage(canvas, c, cx, cy, cw); break;
             case "code":      drawBody(canvas, c.body, cx, cy, cw, true); break;
-            default:          drawBody(canvas, c.body, cx, cy, cw, false); break;
+            default:          drawBody(canvas, markdown(c), cx, cy, cw, false); break;
         }
         canvas.restore();
 
@@ -197,9 +209,10 @@ public class BasketView extends View {
         canvas.drawRoundRect(rect, 8, 8, stroke);
     }
 
-    private void drawBody(Canvas canvas, String text, float x, float y, float width, boolean mono) {
-        if (text == null || text.isEmpty()) return;
+    private void drawBody(Canvas canvas, CharSequence text, float x, float y, float width, boolean mono) {
+        if (text == null || text.length() == 0) return;
         bodyPaint.setTextSize(12f);
+        bodyPaint.setColor(cOnSurfaceVariant);
         bodyPaint.setTypeface(mono ? Typeface.MONOSPACE : Typeface.DEFAULT);
         StaticLayout layout = StaticLayout.Builder
                 .obtain(text, 0, text.length(), bodyPaint, (int) Math.max(1, width))
@@ -209,6 +222,21 @@ public class BasketView extends View {
         canvas.translate(x, y);
         layout.draw(canvas);
         canvas.restore();
+    }
+
+    /** CommonMark-rendered body for a text card, cached per card id. */
+    private CharSequence markdown(Card c) {
+        CharSequence cached = mdCache.get(c.id);
+        if (cached != null) return cached;
+        CharSequence rendered;
+        if (c.body == null || c.body.isEmpty()) {
+            rendered = "";
+        } else {
+            if (markwon == null) markwon = Markwon.create(getContext());
+            rendered = markwon.toMarkdown(c.body);
+        }
+        mdCache.put(c.id, rendered);
+        return rendered;
     }
 
     private void drawChecklist(Canvas canvas, Card c, float x, float y, float width) {
@@ -270,30 +298,60 @@ public class BasketView extends View {
     }
 
     private void drawImage(Canvas canvas, Card c, float x, float y, float width) {
-        Bitmap bmp = images.get(c.id);
-        if (bmp != null) {
-            // Letterbox the bitmap into the content area, preserving aspect.
-            float availW = width, availH = (c.y + c.h) - y - 4;
-            if (availW > 0 && availH > 0) {
-                float bw = bmp.getWidth(), bh = bmp.getHeight();
-                float s = Math.min(availW / bw, availH / bh);
-                float dw = bw * s, dh = bh * s;
-                float dx = x + (availW - dw) / 2f, dy = y + (availH - dh) / 2f;
-                canvas.drawBitmap(bmp, new Rect(0, 0, (int) bw, (int) bh),
-                        new RectF(dx, dy, dx + dw, dy + dh), fill);
+        int n = Math.max(c.imageCount, 0);
+        float availW = width, availH = (c.y + c.h) - y - 4;
+        Map<Integer, Bitmap> loaded = images.get(c.id);
+
+        // Request every not-yet-loaded image index once (a multi-image card shows
+        // a grid). Skips images already in hand so a refresh doesn't re-fetch them.
+        if (n > 0 && imageLoader != null) {
+            for (int i = 0; i < n; i++) {
+                boolean have = loaded != null && loaded.get(i) != null;
+                String key = c.id + ":" + i;
+                if (!have && !requested.contains(key)) {
+                    requested.add(key);
+                    imageLoader.request(c.id, i);
+                }
             }
+        }
+
+        if (n == 0) {
+            bodyPaint.setTextSize(12f);
+            bodyPaint.setTypeface(Typeface.DEFAULT);
+            bodyPaint.setColor(cOnSurfaceVariant);
+            canvas.drawText("🖼  no image", x, y + 14, bodyPaint);
             return;
         }
-        // Not loaded yet — request it once, and show a placeholder meanwhile.
-        if (c.imageCount > 0 && imageLoader != null && !requested.contains(c.id)) {
-            requested.add(c.id);
-            imageLoader.request(c.id, 0);
+        if (availW <= 0 || availH <= 0) return;
+
+        // Grid dimensions (square-ish), matching the desktop's multi-image layout.
+        int cols = (int) Math.ceil(Math.sqrt(n));
+        int rows = (int) Math.ceil((double) n / cols);
+        float gap = 3f;
+        float cellW = (availW - gap * (cols - 1)) / cols;
+        float cellH = (availH - gap * (rows - 1)) / rows;
+        if (cellW <= 0 || cellH <= 0) return;
+
+        for (int i = 0; i < n; i++) {
+            int r = i / cols, col = i % cols;
+            float cellX = x + col * (cellW + gap);
+            float cellY = y + r * (cellH + gap);
+            Bitmap bmp = loaded == null ? null : loaded.get(i);
+            if (bmp != null) {
+                float bw = bmp.getWidth(), bh = bmp.getHeight();
+                float s = Math.min(cellW / bw, cellH / bh);
+                float dw = bw * s, dh = bh * s;
+                float dx = cellX + (cellW - dw) / 2f, dy = cellY + (cellH - dh) / 2f;
+                canvas.drawBitmap(bmp, new Rect(0, 0, (int) bw, (int) bh),
+                        new RectF(dx, dy, dx + dw, dy + dh), fill);
+            } else {
+                // Placeholder tile until this image loads.
+                fill.setColor(cSurfaceVariant);
+                fill.setAlpha(80);
+                canvas.drawRect(cellX, cellY, cellX + cellW, cellY + cellH, fill);
+                fill.setAlpha(255);
+            }
         }
-        bodyPaint.setTextSize(12f);
-        bodyPaint.setTypeface(Typeface.DEFAULT);
-        String label = "🖼  " + (c.imageCount > 1 ? c.imageCount + " images"
-                : c.imageName.isEmpty() ? (c.imageCount == 0 ? "no image" : "loading…") : c.imageName);
-        canvas.drawText(ellipsize(label, width, bodyPaint), x, y + 14, bodyPaint);
     }
 
     private String ellipsize(String s, float maxWidth, Paint p) {
