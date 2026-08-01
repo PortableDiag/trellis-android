@@ -1,0 +1,13 @@
+<!-- A small right-pointing triangle for the tree's expand/collapse control.
+     Drawn as a vector so it renders identically on every device (the old
+     Unicode ▸/▾ glyphs tofu'd to dots in some system fonts). Rotated 90° in
+     code to point down when a node is expanded. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9,6 L15,12 L9,18 Z" />
+</vector>

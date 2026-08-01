@@ -323,7 +323,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static class NodeVH extends RecyclerView.ViewHolder {
-        final TextView arrow;
+        final android.widget.ImageView arrow;
         final TextView title;
         final TextView meta;
 
@@ -340,11 +340,10 @@ public class MainActivity extends AppCompatActivity {
                     itemView.getPaddingRight(), itemView.getPaddingBottom());
             // Leaf nodes keep the arrow's width (so titles line up) but show nothing.
             if (n.hasChildren()) {
-                arrow.setText(n.expanded ? "▾" : "▸");
+                arrow.setRotation(n.expanded ? 90f : 0f); // ▸ collapsed, ▾ expanded
                 arrow.setVisibility(View.VISIBLE);
                 arrow.setClickable(true);
             } else {
-                arrow.setText("");
                 arrow.setVisibility(View.INVISIBLE);
                 arrow.setClickable(false);
             }
