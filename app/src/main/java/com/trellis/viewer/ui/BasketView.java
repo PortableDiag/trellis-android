@@ -64,6 +64,15 @@ public class BasketView extends View {
         void tapped(Card card);
     }
 
+    /** Notified when a text/code card is tapped (to open the scrollable reader). */
+    public interface OnCardTap {
+        void tapped(Card card);
+    }
+    private OnCardTap cardTapListener;
+    public void setOnCardTap(OnCardTap listener) {
+        this.cardTapListener = listener;
+    }
+
     private ImageLoader imageLoader;
     private OnImageTap imageTapListener;
     /** Loaded bitmaps per card, keyed by image index (image cards hold several). */
@@ -419,8 +428,14 @@ public class BasketView extends View {
 
         @Override public boolean onSingleTapConfirmed(@NonNull MotionEvent e) {
             Card c = cardAt(e.getX(), e.getY());
-            if (c != null && "image".equals(c.kind) && imageTapListener != null) {
+            if (c == null) return false;
+            if ("image".equals(c.kind) && imageTapListener != null) {
                 imageTapListener.tapped(c);
+                return true;
+            }
+            // Text/code cards clip on the canvas — tap to read the whole body.
+            if (("text".equals(c.kind) || "code".equals(c.kind)) && cardTapListener != null) {
+                cardTapListener.tapped(c);
                 return true;
             }
             return false;

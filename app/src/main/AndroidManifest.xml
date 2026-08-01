@@ -41,6 +41,10 @@
             android:theme="@style/Theme.Trellis.Viewer"
             android:exported="false"/>
 
+        <activity
+            android:name=".CardReaderActivity"
+            android:exported="false"/>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

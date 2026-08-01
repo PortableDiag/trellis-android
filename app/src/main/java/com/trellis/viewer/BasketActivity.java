@@ -85,6 +85,7 @@ public class BasketActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         basket.setImageLoader(this::loadImage);
         basket.setOnImageTap(this::openImageViewer);
+        basket.setOnCardTap(this::openCardReader);
 
         pickImage = registerForActivityResult(
                 new ActivityResultContracts.PickVisualMedia(), uri -> {
@@ -186,6 +187,14 @@ public class BasketActivity extends AppCompatActivity {
 
     private void toast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    private void openCardReader(Card card) {
+        Intent i = new Intent(this, CardReaderActivity.class);
+        i.putExtra(CardReaderActivity.EXTRA_TITLE, card.title);
+        i.putExtra(CardReaderActivity.EXTRA_BODY, card.body);
+        i.putExtra(CardReaderActivity.EXTRA_KIND, card.kind);
+        startActivity(i);
     }
 
     private void openImageViewer(Card card) {

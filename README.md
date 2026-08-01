@@ -46,6 +46,9 @@ Two-axis appearance (dark/light × accent), matching the house style:
 - Image cards render their picture (Trellis ≥ 0.29.0); **tap one to open a
   full-screen viewer** with pinch-to-zoom, pan, double-tap-to-zoom, and
   **swipe between all images** on a multi-image card.
+- **Tap a text or code card to read it in full** — cards are clipped to their box
+  on the canvas, so a long note only shows its top; tapping opens a scrollable
+  reader with the whole body (markdown-rendered for text, monospaced for code).
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
