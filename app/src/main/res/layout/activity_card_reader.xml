@@ -22,14 +22,20 @@
         android:layout_height="match_parent"
         android:fillViewport="true">
 
-        <TextView
-            android:id="@+id/body"
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:lineSpacingMultiplier="1.15"
-            android:textAppearance="?attr/textAppearanceBodyLarge"
-            android:textColor="?attr/colorOnSurface"
-            android:textIsSelectable="true"/>
+            android:fillViewport="true">
+
+            <TextView
+                android:id="@+id/body"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:lineSpacingMultiplier="1.15"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorOnSurface"
+                android:textIsSelectable="true"/>
+        </HorizontalScrollView>
     </ScrollView>
 </LinearLayout>

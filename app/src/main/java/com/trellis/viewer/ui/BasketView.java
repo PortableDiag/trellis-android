@@ -433,8 +433,11 @@ public class BasketView extends View {
                 imageTapListener.tapped(c);
                 return true;
             }
-            // Text/code cards clip on the canvas — tap to read the whole body.
-            if (("text".equals(c.kind) || "code".equals(c.kind)) && cardTapListener != null) {
+            // Text/code/checklist/table cards clip on the canvas — tap to read
+            // the whole thing (sketches and images are handled separately).
+            if (cardTapListener != null
+                    && ("text".equals(c.kind) || "code".equals(c.kind)
+                        || "checklist".equals(c.kind) || "table".equals(c.kind))) {
                 cardTapListener.tapped(c);
                 return true;
             }

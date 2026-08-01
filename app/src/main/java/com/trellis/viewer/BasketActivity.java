@@ -190,11 +190,66 @@ public class BasketActivity extends AppCompatActivity {
     }
 
     private void openCardReader(Card card) {
+        String body;
+        boolean mono;
+        switch (card.kind) {
+            case "code":      body = card.body;               mono = true;  break;
+            case "checklist": body = checklistMarkdown(card); mono = false; break;
+            case "table":     body = tableText(card);         mono = true;  break;
+            default:          body = card.body;               mono = false; break; // text
+        }
         Intent i = new Intent(this, CardReaderActivity.class);
         i.putExtra(CardReaderActivity.EXTRA_TITLE, card.title);
-        i.putExtra(CardReaderActivity.EXTRA_BODY, card.body);
-        i.putExtra(CardReaderActivity.EXTRA_KIND, card.kind);
+        i.putExtra(CardReaderActivity.EXTRA_BODY, body);
+        i.putExtra(CardReaderActivity.EXTRA_MONO, mono);
         startActivity(i);
+    }
+
+    /** A checklist card as a markdown bullet list with checkbox glyphs. */
+    private static String checklistMarkdown(Card card) {
+        if (card.items.isEmpty()) return "_(empty checklist)_";
+        StringBuilder sb = new StringBuilder();
+        for (Card.Item it : card.items) {
+            sb.append("- ").append(it.done ? "☑" : "☐").append("  ")
+              .append(it.text == null ? "" : it.text).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** A table card as fixed-width text with padded, aligned columns (monospace). */
+    private static String tableText(Card card) {
+        if (card.rows.isEmpty()) return "(empty table)";
+        int cols = 0;
+        for (List<Card.Cell> row : card.rows) cols = Math.max(cols, row.size());
+        int[] width = new int[cols];
+        for (List<Card.Cell> row : card.rows) {
+            for (int i = 0; i < row.size(); i++) {
+                String t = row.get(i).text == null ? "" : row.get(i).text;
+                width[i] = Math.max(width[i], t.length());
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < card.rows.size(); r++) {
+            List<Card.Cell> row = card.rows.get(r);
+            StringBuilder line = new StringBuilder();
+            for (int i = 0; i < cols; i++) {
+                String t = (i < row.size() && row.get(i).text != null) ? row.get(i).text : "";
+                line.append(t);
+                for (int p = t.length(); p < width[i]; p++) line.append(' ');
+                if (i < cols - 1) line.append("  ");
+            }
+            int end = line.length();
+            while (end > 0 && line.charAt(end - 1) == ' ') end--; // trim trailing pad
+            sb.append(line, 0, end).append('\n');
+            if (r == 0 && card.tableHeader) {
+                for (int i = 0; i < cols; i++) {
+                    for (int d = 0; d < width[i]; d++) sb.append('-');
+                    if (i < cols - 1) sb.append("  ");
+                }
+                sb.append('\n');
+            }
+        }
+        return sb.toString();
     }
 
     private void openImageViewer(Card card) {
