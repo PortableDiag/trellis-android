@@ -114,6 +114,19 @@ public class TrellisApi {
         return o.optString("base64", "");
     }
 
+    /** GET /tasks — the agenda: cards with a {@code due::} date, bucketed by when
+     *  they're due ({@code {today_days, tasks:[{node,node_title,card,title,due,done,bucket}]}}).
+     *  Cached for offline. */
+    public JSONObject tasks() throws IOException, JSONException {
+        return new JSONObject(getCached("/tasks"));
+    }
+
+    /** GET /kanban — cards grouped by {@code status::} value into columns
+     *  ({@code {today_days, columns:[{status,count,cards:[…]}]}}). Cached for offline. */
+    public JSONObject kanban() throws IOException, JSONException {
+        return new JSONObject(getCached("/kanban"));
+    }
+
     /** GET /search?q= — full-text search; returns {@code {hits:[{node,node_title,snippet}]}}. */
     public JSONObject search(String query) throws IOException, JSONException {
         String q = java.net.URLEncoder.encode(query, "UTF-8");

@@ -15,6 +15,16 @@
         app:showAsAction="ifRoom"/>
 
     <item
+        android:id="@+id/action_agenda"
+        android:title="Agenda"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_kanban"
+        android:title="Kanban"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_collapse_all"
         android:title="Collapse all"
         app:showAsAction="never"/>

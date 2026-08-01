@@ -112,6 +112,12 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_refresh) {
             load();
             return true;
+        } else if (id == R.id.action_agenda) {
+            startActivity(new Intent(this, AgendaActivity.class));
+            return true;
+        } else if (id == R.id.action_kanban) {
+            startActivity(new Intent(this, KanbanActivity.class));
+            return true;
         } else if (id == R.id.action_collapse_all) {
             expandedIds.clear();
             saveExpandedState();
@@ -180,6 +186,9 @@ public class MainActivity extends AppCompatActivity {
         prefetchIo.execute(() -> {
             TrellisApi api = new TrellisApi(base, key, this);
             try {
+                // Derived views (Agenda / Kanban) so they're available offline too.
+                try { api.tasks(); } catch (Exception ignored) {}
+                try { api.kanban(); } catch (Exception ignored) {}
                 for (Long id : ids) {
                     if (Thread.currentThread().isInterrupted()) break;
                     try {
