@@ -30,7 +30,10 @@ Java + XML Views, Material 3. AGP 8.7.3 / Gradle 8.11.1, `compileSdk 35`,
 
 Two-axis appearance (dark/light × accent), matching the house style:
 **Ocean** (blue, default), **Terminal** (green, monospace), and **Trellis**
-(indigo/slate — the desktop signature). Set in Settings → Appearance.
+(indigo/slate — the desktop signature). Plus three that mirror the desktop:
+**Sticky Notes** (solid single-color paper cards — yellow by default — on a cork
+board), **Futuristic** (a Minority-Report blue HUD with beveled tech-panel cards),
+and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
 
 ## Status
 

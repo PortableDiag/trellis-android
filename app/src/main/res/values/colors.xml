@@ -41,4 +41,46 @@
     <color name="trel_on_surface">#1A1A22</color>
     <color name="trel_on_surface_variant">#46465A</color>
     <color name="trel_outline">#C6C5D4</color>
+
+    <!-- ===== Sticky Notes — yellow paper on a cork board. ===== -->
+    <color name="stk_primary">#8A5300</color>
+    <color name="stk_on_primary">#FFFFFF</color>
+    <color name="stk_primary_container">#FFE08A</color>
+    <color name="stk_on_primary_container">#3A2A00</color>
+    <color name="stk_secondary">#B07A00</color>
+    <color name="stk_background">#9C7C4C</color>
+    <color name="stk_surface">#FFE96B</color>
+    <color name="stk_surface_variant">#FFF3C2</color>
+    <color name="stk_surface_container">#FBE79A</color>
+    <color name="stk_on_surface">#392B10</color>
+    <color name="stk_on_surface_variant">#4A3A1A</color>
+    <color name="stk_outline">#C9A94A</color>
+
+    <!-- ===== Futuristic — Minority-Report holographic blue on near-black. ===== -->
+    <color name="fut_primary">#5AE6FF</color>
+    <color name="fut_on_primary">#002430</color>
+    <color name="fut_primary_container">#06485A</color>
+    <color name="fut_on_primary_container">#A8E6FF</color>
+    <color name="fut_secondary">#7FD4EC</color>
+    <color name="fut_background">#030710</color>
+    <color name="fut_surface">#081420</color>
+    <color name="fut_surface_variant">#0D2030</color>
+    <color name="fut_surface_container">#0A1926</color>
+    <color name="fut_on_surface">#D6F4FF</color>
+    <color name="fut_on_surface_variant">#A8D8EC</color>
+    <color name="fut_outline">#2B88A8</color>
+
+    <!-- ===== SynthWave — outrun neon: pink + cyan on deep violet. ===== -->
+    <color name="sw_primary">#FF3864</color>
+    <color name="sw_on_primary">#3A0010</color>
+    <color name="sw_primary_container">#791E94</color>
+    <color name="sw_on_primary_container">#FFD6E4</color>
+    <color name="sw_secondary">#2DE2E6</color>
+    <color name="sw_background">#0D0221</color>
+    <color name="sw_surface">#241734</color>
+    <color name="sw_surface_variant">#2E2157</color>
+    <color name="sw_surface_container">#1C1030</color>
+    <color name="sw_on_surface">#D8F5F7</color>
+    <color name="sw_on_surface_variant">#B79ADF</color>
+    <color name="sw_outline">#920075</color>
 </resources>

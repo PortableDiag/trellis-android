@@ -65,4 +65,61 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/trel_background</item>
     </style>
+
+    <!-- Sticky Notes — yellow paper on a cork board (fixed light look). -->
+    <style name="Theme.Trellis.Sticky" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/stk_primary</item>
+        <item name="colorOnPrimary">@color/stk_on_primary</item>
+        <item name="colorPrimaryContainer">@color/stk_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/stk_on_primary_container</item>
+        <item name="colorSecondary">@color/stk_secondary</item>
+        <item name="android:colorBackground">@color/stk_background</item>
+        <item name="colorSurface">@color/stk_surface</item>
+        <item name="colorSurfaceVariant">@color/stk_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/stk_surface_container</item>
+        <item name="colorOnSurface">@color/stk_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/stk_on_surface_variant</item>
+        <item name="colorOutline">@color/stk_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/stk_background</item>
+    </style>
+
+    <!-- Futuristic — Minority-Report holographic blue (fixed dark look). -->
+    <style name="Theme.Trellis.Futuristic" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/fut_primary</item>
+        <item name="colorOnPrimary">@color/fut_on_primary</item>
+        <item name="colorPrimaryContainer">@color/fut_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/fut_on_primary_container</item>
+        <item name="colorSecondary">@color/fut_secondary</item>
+        <item name="android:colorBackground">@color/fut_background</item>
+        <item name="colorSurface">@color/fut_surface</item>
+        <item name="colorSurfaceVariant">@color/fut_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/fut_surface_container</item>
+        <item name="colorOnSurface">@color/fut_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/fut_on_surface_variant</item>
+        <item name="colorOutline">@color/fut_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/fut_background</item>
+    </style>
+
+    <!-- SynthWave — outrun neon pink + cyan on deep violet (fixed dark look). -->
+    <style name="Theme.Trellis.Synthwave" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/sw_primary</item>
+        <item name="colorOnPrimary">@color/sw_on_primary</item>
+        <item name="colorPrimaryContainer">@color/sw_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/sw_on_primary_container</item>
+        <item name="colorSecondary">@color/sw_secondary</item>
+        <item name="android:colorBackground">@color/sw_background</item>
+        <item name="colorSurface">@color/sw_surface</item>
+        <item name="colorSurfaceVariant">@color/sw_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/sw_surface_container</item>
+        <item name="colorOnSurface">@color/sw_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/sw_on_surface_variant</item>
+        <item name="colorOutline">@color/sw_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/sw_background</item>
+    </style>
 </resources>

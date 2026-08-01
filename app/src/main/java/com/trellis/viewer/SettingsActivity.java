@@ -63,14 +63,20 @@ public class SettingsActivity extends AppCompatActivity {
 
         RadioGroup accentGroup = findViewById(R.id.accent_group);
         switch (ThemePrefs.accent(this)) {
-            case ThemePrefs.TERMINAL: accentGroup.check(R.id.accent_terminal); break;
-            case ThemePrefs.TRELLIS:  accentGroup.check(R.id.accent_trellis); break;
-            default:                  accentGroup.check(R.id.accent_ocean); break;
+            case ThemePrefs.TERMINAL:   accentGroup.check(R.id.accent_terminal); break;
+            case ThemePrefs.TRELLIS:    accentGroup.check(R.id.accent_trellis); break;
+            case ThemePrefs.STICKY:     accentGroup.check(R.id.accent_sticky); break;
+            case ThemePrefs.FUTURISTIC: accentGroup.check(R.id.accent_futuristic); break;
+            case ThemePrefs.SYNTHWAVE:  accentGroup.check(R.id.accent_synthwave); break;
+            default:                    accentGroup.check(R.id.accent_ocean); break;
         }
         accentGroup.setOnCheckedChangeListener((group, checkedId) -> {
             String accent = ThemePrefs.OCEAN;
             if (checkedId == R.id.accent_terminal) accent = ThemePrefs.TERMINAL;
             else if (checkedId == R.id.accent_trellis) accent = ThemePrefs.TRELLIS;
+            else if (checkedId == R.id.accent_sticky) accent = ThemePrefs.STICKY;
+            else if (checkedId == R.id.accent_futuristic) accent = ThemePrefs.FUTURISTIC;
+            else if (checkedId == R.id.accent_synthwave) accent = ThemePrefs.SYNTHWAVE;
             ThemePrefs.setAccent(this, accent);
             recreate();
         });

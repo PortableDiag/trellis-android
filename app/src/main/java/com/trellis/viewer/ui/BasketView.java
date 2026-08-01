@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Path;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -44,6 +45,10 @@ public class BasketView extends View {
     private boolean fitPending = true;
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
+    /** Theme-specific card rendering (Sticky = one solid color; Futuristic = beveled). */
+    private final boolean stickyTheme, futuristicTheme;
+    private static final int STICKY_YELLOW = Color.rgb(0xff, 0xe9, 0x6b);
+    private static final int[] DEFAULT_CARD_COLOR = {0x3b, 0x82, 0xf6};
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -90,6 +95,10 @@ public class BasketView extends View {
         cSurfaceVariant = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorSurfaceVariant, Color.LTGRAY);
         cOnSurfaceVariant = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.DKGRAY);
         cOutline = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, Color.GRAY);
+
+        String themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
+        stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(themeAccent);
+        futuristicTheme = com.trellis.viewer.util.ThemePrefs.FUTURISTIC.equals(themeAccent);
 
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setStrokeWidth(1.5f);
@@ -181,16 +190,34 @@ public class BasketView extends View {
     private void drawCard(Canvas canvas, Card c) {
         float titleH = 26f;
         RectF rect = new RectF(c.x, c.y, c.x + c.w, c.y + c.h);
-        fill.setColor(cSurface);
-        canvas.drawRoundRect(rect, 8, 8, fill);
-
-        // Title bar tinted by the card's accent color.
-        int acc = c.color != null ? Color.rgb(c.color[0], c.color[1], c.color[2]) : cSurfaceVariant;
-        accent.setColor(acc);
-        accent.setAlpha(90);
         RectF titleRect = new RectF(c.x, c.y, c.x + c.w, c.y + titleH);
-        canvas.drawRoundRect(titleRect, 8, 8, accent);
-        canvas.drawRect(c.x, c.y + titleH - 8, c.x + c.w, c.y + titleH, accent);
+        int acc = c.color != null ? Color.rgb(c.color[0], c.color[1], c.color[2]) : cSurfaceVariant;
+
+        if (stickyTheme) {
+            // One solid paper color for the whole note — header and body the same,
+            // like a real sticky. A default (uncolored) card is yellow.
+            int paper = isDefaultCardColor(c.color) ? STICKY_YELLOW : acc;
+            fill.setColor(paper);
+            canvas.drawRoundRect(rect, 8, 8, fill);
+            // Faint divider under the title keeps it legible without a header bar.
+            stroke.setColor(darken(paper, 0.78f));
+            canvas.drawLine(c.x + 4, c.y + titleH, c.x + c.w - 4, c.y + titleH, stroke);
+        } else if (futuristicTheme) {
+            // Angular tech panel: beveled corners (top-right + bottom-left) + cyan edge.
+            fill.setColor(cSurface);
+            canvas.drawPath(bevelDiag(rect, 12f), fill);
+            accent.setColor(acc);
+            accent.setAlpha(72);
+            canvas.drawPath(bevelTitle(titleRect, 12f), accent);
+        } else {
+            fill.setColor(cSurface);
+            canvas.drawRoundRect(rect, 8, 8, fill);
+            // Title bar tinted by the card's accent color.
+            accent.setColor(acc);
+            accent.setAlpha(90);
+            canvas.drawRoundRect(titleRect, 8, 8, accent);
+            canvas.drawRect(c.x, c.y + titleH - 8, c.x + c.w, c.y + titleH, accent);
+        }
 
         titlePaint.setTextSize(13f);
         String title = c.title.isEmpty() ? c.kind : c.title;
@@ -214,8 +241,58 @@ public class BasketView extends View {
         }
         canvas.restore();
 
-        stroke.setColor(cOutline);
-        canvas.drawRoundRect(rect, 8, 8, stroke);
+        if (stickyTheme) {
+            int paper = isDefaultCardColor(c.color) ? STICKY_YELLOW : acc;
+            stroke.setColor(darken(paper, 0.72f));
+            canvas.drawRoundRect(rect, 8, 8, stroke);
+        } else if (futuristicTheme) {
+            stroke.setColor(acc);
+            canvas.drawPath(bevelDiag(rect, 12f), stroke);
+        } else {
+            stroke.setColor(cOutline);
+            canvas.drawRoundRect(rect, 8, 8, stroke);
+        }
+    }
+
+    private static boolean isDefaultCardColor(int[] c) {
+        return c == null
+                || (c[0] == DEFAULT_CARD_COLOR[0] && c[1] == DEFAULT_CARD_COLOR[1] && c[2] == DEFAULT_CARD_COLOR[2]);
+    }
+
+    /** Darken an opaque color by scaling its RGB toward black. */
+    private static int darken(int color, float f) {
+        return Color.rgb(
+                (int) (Color.red(color) * f),
+                (int) (Color.green(color) * f),
+                (int) (Color.blue(color) * f));
+    }
+
+    /** A rounded-rect-sized path with the top-right and bottom-left corners cut
+     *  at 45° (the Futuristic tech-panel bevel). */
+    private static Path bevelDiag(RectF r, float c) {
+        c = Math.min(c, Math.min(r.width(), r.height()) * 0.5f);
+        Path p = new Path();
+        p.moveTo(r.left, r.top);
+        p.lineTo(r.right - c, r.top);
+        p.lineTo(r.right, r.top + c);
+        p.lineTo(r.right, r.bottom);
+        p.lineTo(r.left + c, r.bottom);
+        p.lineTo(r.left, r.bottom - c);
+        p.close();
+        return p;
+    }
+
+    /** The title strip with only its top-right corner cut, to match a bevelDiag card. */
+    private static Path bevelTitle(RectF r, float c) {
+        c = Math.min(c, r.width() * 0.5f);
+        Path p = new Path();
+        p.moveTo(r.left, r.top);
+        p.lineTo(r.right - c, r.top);
+        p.lineTo(r.right, r.top + c);
+        p.lineTo(r.right, r.bottom);
+        p.lineTo(r.left, r.bottom);
+        p.close();
+        return p;
     }
 
     private void drawBody(Canvas canvas, CharSequence text, float x, float y, float width, boolean mono) {

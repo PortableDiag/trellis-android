@@ -140,6 +140,24 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Trellis"/>
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_sticky"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Sticky Notes"/>
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_futuristic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Futuristic"/>
+
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_synthwave"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="SynthWave"/>
             </RadioGroup>
         </LinearLayout>
     </ScrollView>

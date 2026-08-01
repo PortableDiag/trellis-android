@@ -21,6 +21,9 @@ public class ThemePrefs {
     public static final String OCEAN = "ocean";
     public static final String TERMINAL = "terminal";
     public static final String TRELLIS = "trellis";
+    public static final String STICKY = "sticky";
+    public static final String FUTURISTIC = "futuristic";
+    public static final String SYNTHWAVE = "synthwave";
 
     private static SharedPreferences p(Context c) {
         return c.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);
@@ -57,9 +60,12 @@ public class ThemePrefs {
     /** Theme style resource for the current accent. Apply before setContentView. */
     public static int themeRes(Context c) {
         switch (accent(c)) {
-            case TERMINAL: return R.style.Theme_Trellis_Terminal;
-            case TRELLIS:  return R.style.Theme_Trellis_Slate;
-            default:       return R.style.Theme_Trellis;
+            case TERMINAL:   return R.style.Theme_Trellis_Terminal;
+            case TRELLIS:    return R.style.Theme_Trellis_Slate;
+            case STICKY:     return R.style.Theme_Trellis_Sticky;
+            case FUTURISTIC: return R.style.Theme_Trellis_Futuristic;
+            case SYNTHWAVE:  return R.style.Theme_Trellis_Synthwave;
+            default:         return R.style.Theme_Trellis;
         }
     }
 }
