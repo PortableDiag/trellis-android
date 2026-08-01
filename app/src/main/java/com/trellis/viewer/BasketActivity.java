@@ -280,7 +280,7 @@ public class BasketActivity extends AppCompatActivity {
     private void load() {
         if (loading || nodeId < 0 || !ServerPrefs.isConfigured(this)) return;
         loading = true;
-        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
+        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this), this);
         io.execute(() -> {
             List<Card> cards = null;
             String error = null;
@@ -291,8 +291,10 @@ public class BasketActivity extends AppCompatActivity {
             }
             final List<Card> result = cards;
             final String err = error;
+            final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
                 loading = false;
+                setOfflineBanner(err == null && fromCache);
                 if (err != null) {
                     if (basket.isEmpty()) showStatus("Couldn't load this basket.\n\n" + err);
                 } else if (result.isEmpty()) {
@@ -307,9 +309,16 @@ public class BasketActivity extends AppCompatActivity {
         });
     }
 
+    /** Show/hide an "offline — cached copy" note under the basket title. */
+    private void setOfflineBanner(boolean offline) {
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
+        }
+    }
+
     /** Fetch an image card's picture off-thread, decode it, and hand it to the view. */
     private void loadImage(long cardId, int index) {
-        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
+        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this), this);
         io.execute(() -> {
             Bitmap bmp = null;
             try {

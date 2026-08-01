@@ -28,8 +28,20 @@ public class LiveWaiter {
         thread = new Thread(() -> {
             TrellisApi api = new TrellisApi(base, key);
             long rev = 0;
+            boolean offline = false;
             while (running) {
                 try {
+                    // Coming back from an offline stretch: confirm the host is up,
+                    // then trigger a refresh so the UI leaves the cached copy and
+                    // returns to the live document.
+                    if (offline) {
+                        if (!api.health()) {
+                            Thread.sleep(3000);
+                            continue;
+                        }
+                        offline = false;
+                        if (running) ui.post(cb::changed);
+                    }
                     JSONObject o = api.waitForChange(rev);
                     long newRev = o.optLong("rev", rev);
                     boolean changed = o.optBoolean("changed", false);
@@ -39,8 +51,14 @@ public class LiveWaiter {
                     }
                 } catch (Exception e) {
                     if (!running) break;
+                    // First failure of an outage: refresh once so the view drops to
+                    // the cached copy (and shows the offline banner) right away.
+                    if (!offline) {
+                        offline = true;
+                        if (running) ui.post(cb::changed);
+                    }
                     try {
-                        Thread.sleep(3000); // back off on error, then retry
+                        Thread.sleep(3000); // back off, then retry
                     } catch (InterruptedException ie) {
                         break;
                     }

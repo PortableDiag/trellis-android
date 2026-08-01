@@ -59,3 +59,9 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   or a **picked image** as a card in that node. (Read + capture; other edits are
   still done on the desktop.)
 - Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).
+- **Offline cache (read-only)** — every basket and image you open is cached on the
+  phone, so when the LAN Trellis goes offline you can still read what you've
+  already viewed. An "⚠ Offline — cached copy" note appears under the title while
+  serving the cache; the app returns to the live document (and refreshes the
+  cache) automatically the moment the host is back. No sync — writes still need
+  the desktop.

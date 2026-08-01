@@ -118,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         refresh.setRefreshing(true);
-        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this));
+        final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this), this);
         io.execute(() -> {
             List<TreeNode> parsed;
             String error = null;
@@ -130,8 +130,10 @@ public class MainActivity extends AppCompatActivity {
             }
             final List<TreeNode> result = parsed;
             final String err = error;
+            final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
                 refresh.setRefreshing(false);
+                setOfflineBanner(err == null && fromCache);
                 if (err != null) {
                     showStatus("Couldn't reach Trellis at " + ServerPrefs.baseUrl(this) + "\n\n" + err);
                 } else if (result.isEmpty()) {
@@ -144,6 +146,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    /** Show/hide an "offline — cached copy" note under the title. */
+    private void setOfflineBanner(boolean offline) {
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
+        }
     }
 
     /** Apply the saved folds to the current tree and show the visible rows. */

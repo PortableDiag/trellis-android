@@ -111,7 +111,7 @@ public class ImageViewerActivity extends AppCompatActivity {
             }
             view.setImageDrawable(null);
             final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(ImageViewerActivity.this),
-                    ServerPrefs.key(ImageViewerActivity.this));
+                    ServerPrefs.key(ImageViewerActivity.this), ImageViewerActivity.this);
             io.execute(() -> {
                 Bitmap bmp = null;
                 try {

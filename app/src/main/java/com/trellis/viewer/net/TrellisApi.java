@@ -3,6 +3,7 @@ package com.trellis.viewer.net;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Context;
 import android.util.Base64;
 
 import java.io.BufferedReader;
@@ -20,12 +21,31 @@ import java.nio.charset.StandardCharsets;
  */
 public class TrellisApi {
 
-    private final String base; // e.g. http://192.168.0.101:7373/api
+    private final String base; // e.g. http://<host>:7373/api
     private final String key;
+    /** Read-only offline cache (null = no caching, e.g. the /wait + write paths). */
+    private OfflineCache cache;
+    /** True if the most recent cached read fell back to the on-disk copy (host down). */
+    private volatile boolean lastFromCache;
 
     public TrellisApi(String base, String key) {
         this.base = base;
         this.key = key;
+    }
+
+    /** As above, but with an offline read cache — the read endpoints (tree, node,
+     *  images) write through on success and fall back to the cache when the host
+     *  is unreachable. Use this for the viewing paths. */
+    public TrellisApi(String base, String key, Context ctx) {
+        this(base, key);
+        if (ctx != null) {
+            this.cache = new OfflineCache(ctx, base);
+        }
+    }
+
+    /** Whether the last cached read was served from the offline copy (host down). */
+    public boolean lastFromCache() {
+        return lastFromCache;
     }
 
     /** GET a path under the API base (e.g. "/tree") and return the raw body. */
@@ -54,19 +74,43 @@ public class TrellisApi {
         }
     }
 
-    /** GET /tree — the node hierarchy (titles + card counts). */
+    /** Like {@link #get(String)} but write-through to the offline cache, and —
+     *  when the host is unreachable — served from that cache instead of failing.
+     *  Sets {@link #lastFromCache()} accordingly. Falls back to a plain GET when
+     *  there is no cache attached. */
+    private String getCached(String path) throws IOException {
+        if (cache == null) {
+            lastFromCache = false;
+            return get(path);
+        }
+        try {
+            String body = get(path);
+            cache.write(path, body);
+            lastFromCache = false;
+            return body;
+        } catch (IOException live) {
+            String cached = cache.read(path);
+            if (cached != null) {
+                lastFromCache = true;
+                return cached;
+            }
+            throw live; // nothing cached yet — surface the real error
+        }
+    }
+
+    /** GET /tree — the node hierarchy (titles + card counts). Cached for offline. */
     public JSONObject tree() throws IOException, JSONException {
-        return new JSONObject(get("/tree"));
+        return new JSONObject(getCached("/tree"));
     }
 
-    /** GET /nodes/{id} — a node with its full cards. */
+    /** GET /nodes/{id} — a node with its full cards. Cached for offline. */
     public JSONObject node(long id) throws IOException, JSONException {
-        return new JSONObject(get("/nodes/" + id));
+        return new JSONObject(getCached("/nodes/" + id));
     }
 
-    /** GET an image card's image bytes (base64) — {@code images/{idx}}. */
+    /** GET an image card's image bytes (base64) — {@code images/{idx}}. Cached. */
     public String imageBase64(long node, long card, int idx) throws IOException, JSONException {
-        JSONObject o = new JSONObject(get("/nodes/" + node + "/cards/" + card + "/images/" + idx));
+        JSONObject o = new JSONObject(getCached("/nodes/" + node + "/cards/" + card + "/images/" + idx));
         return o.optString("base64", "");
     }
 
