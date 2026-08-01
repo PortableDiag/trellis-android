@@ -56,31 +56,34 @@
     <color name="stk_on_surface_variant">#4A3A1A</color>
     <color name="stk_outline">#C9A94A</color>
 
-    <!-- ===== Futuristic — Minority-Report holographic blue on near-black. ===== -->
-    <color name="fut_primary">#5AE6FF</color>
+    <!-- ===== Futuristic — Minority-Report holographic blue on near-black.
+         Panels are distinctly teal-tinted (lifted off Trellis's neutral gray so
+         the two dark themes don't read the same). ===== -->
+    <color name="fut_primary">#4DE4FF</color>
     <color name="fut_on_primary">#002430</color>
-    <color name="fut_primary_container">#06485A</color>
-    <color name="fut_on_primary_container">#A8E6FF</color>
+    <color name="fut_primary_container">#0A4E62</color>
+    <color name="fut_on_primary_container">#B4EEFF</color>
     <color name="fut_secondary">#7FD4EC</color>
-    <color name="fut_background">#030710</color>
-    <color name="fut_surface">#081420</color>
-    <color name="fut_surface_variant">#0D2030</color>
-    <color name="fut_surface_container">#0A1926</color>
-    <color name="fut_on_surface">#D6F4FF</color>
-    <color name="fut_on_surface_variant">#A8D8EC</color>
-    <color name="fut_outline">#2B88A8</color>
+    <color name="fut_background">#030A12</color>
+    <color name="fut_surface">#0B2230</color>
+    <color name="fut_surface_variant">#123040</color>
+    <color name="fut_surface_container">#0D2634</color>
+    <color name="fut_on_surface">#E2FBFF</color>
+    <color name="fut_on_surface_variant">#AEDCEE</color>
+    <color name="fut_outline">#35A6CC</color>
 
-    <!-- ===== SynthWave — outrun neon: pink + cyan on deep violet. ===== -->
-    <color name="sw_primary">#FF3864</color>
-    <color name="sw_on_primary">#3A0010</color>
-    <color name="sw_primary_container">#791E94</color>
-    <color name="sw_on_primary_container">#FFD6E4</color>
-    <color name="sw_secondary">#2DE2E6</color>
-    <color name="sw_background">#0D0221</color>
-    <color name="sw_surface">#241734</color>
-    <color name="sw_surface_variant">#2E2157</color>
-    <color name="sw_surface_container">#1C1030</color>
-    <color name="sw_on_surface">#D8F5F7</color>
-    <color name="sw_on_surface_variant">#B79ADF</color>
-    <color name="sw_outline">#920075</color>
+    <!-- ===== SynthWave / Hotline-Miami — dark, near-black interface with hot
+         pink + electric cyan used only as ACCENTS (not a wash of purple). ===== -->
+    <color name="sw_primary">#FF3B6B</color>
+    <color name="sw_on_primary">#2A0012</color>
+    <color name="sw_primary_container">#5A1138</color>
+    <color name="sw_on_primary_container">#FFD9E3</color>
+    <color name="sw_secondary">#2DE6F0</color>
+    <color name="sw_background">#08060D</color>
+    <color name="sw_surface">#15121E</color>
+    <color name="sw_surface_variant">#221D2E</color>
+    <color name="sw_surface_container">#100D18</color>
+    <color name="sw_on_surface">#E8E6EE</color>
+    <color name="sw_on_surface_variant">#9F92B3</color>
+    <color name="sw_outline">#453A52</color>
 </resources>

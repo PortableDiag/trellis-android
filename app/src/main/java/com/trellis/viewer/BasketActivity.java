@@ -53,6 +53,8 @@ public class BasketActivity extends AppCompatActivity {
     private long nodeId;
     private boolean polling;
     private volatile boolean loading;
+    /** Accent this activity was themed with, to detect a Settings change. */
+    private String appliedAccent;
 
     private ActivityResultLauncher<PickVisualMediaRequest> pickImage;
     private ActivityResultLauncher<Uri> takePhoto;
@@ -67,6 +69,7 @@ public class BasketActivity extends AppCompatActivity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(ThemePrefs.themeRes(this));
+        appliedAccent = ThemePrefs.accent(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_basket);
 
@@ -265,6 +268,12 @@ public class BasketActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        // Re-theme if the accent changed in Settings (theme is baked at onCreate,
+        // and BasketView reads it once in its constructor).
+        if (!ThemePrefs.accent(this).equals(appliedAccent)) {
+            recreate();
+            return;
+        }
         polling = true;
         ui.post(poll);
         waiter.start(this, ui, this::load); // instant updates on change

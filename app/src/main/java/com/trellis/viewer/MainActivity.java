@@ -32,8 +32,16 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    /** Off-thread walk of the whole tree that pre-caches every basket for offline
+     *  use (separate from {@link #io} so it never delays an interactive load). */
+    private final ExecutorService prefetchIo = Executors.newSingleThreadExecutor();
+    private volatile boolean prefetching;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final LiveWaiter waiter = new LiveWaiter();
+
+    /** The accent this activity was themed with, so we can re-theme (recreate) if
+     *  it changed in Settings while we were in the background. */
+    private String appliedAccent;
 
     private SwipeRefreshLayout refresh;
     private RecyclerView list;
@@ -51,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(com.trellis.viewer.util.ThemePrefs.themeRes(this));
+        appliedAccent = com.trellis.viewer.util.ThemePrefs.accent(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -72,6 +81,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        // If the accent changed in Settings, the theme was baked at onCreate and
+        // won't update on its own — re-create so the whole screen re-themes.
+        if (!com.trellis.viewer.util.ThemePrefs.accent(this).equals(appliedAccent)) {
+            recreate();
+            return;
+        }
         load();
         waiter.start(this, ui, this::load); // refresh the tree on any change
     }
@@ -143,9 +158,58 @@ public class MainActivity extends AppCompatActivity {
                     list.setVisibility(View.VISIBLE);
                     roots = result;
                     rebuildVisible();
+                    // On a live load, pre-cache every basket so offline shows the
+                    // whole document, not just baskets we happened to open.
+                    if (!fromCache) prefetchAll(result);
                 }
             });
         });
+    }
+
+    /** Walk the whole tree off-thread and pre-fetch every node (and its images)
+     *  into the offline cache, so going offline still shows all baskets. Runs at
+     *  most once at a time; best-effort (failures are skipped). */
+    private void prefetchAll(List<TreeNode> roots) {
+        if (prefetching || !ServerPrefs.isConfigured(this)) return;
+        final List<Long> ids = new ArrayList<>();
+        collectAllIds(roots, ids);
+        if (ids.isEmpty()) return;
+        prefetching = true;
+        final String base = ServerPrefs.baseUrl(this);
+        final String key = ServerPrefs.key(this);
+        prefetchIo.execute(() -> {
+            TrellisApi api = new TrellisApi(base, key, this);
+            try {
+                for (Long id : ids) {
+                    if (Thread.currentThread().isInterrupted()) break;
+                    try {
+                        org.json.JSONObject node = api.node(id); // write-through caches /nodes/{id}
+                        if (api.lastFromCache()) break; // host went down — stop hammering
+                        for (com.trellis.viewer.model.Card c : com.trellis.viewer.model.Card.parseCards(node)) {
+                            if (!"image".equals(c.kind)) continue;
+                            for (int idx = 0; idx < c.imageCount; idx++) {
+                                try {
+                                    api.imageBase64(id, c.id, idx); // caches the image bytes
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // skip this node; keep going
+                    }
+                }
+            } finally {
+                prefetching = false;
+            }
+        });
+    }
+
+    /** Collect the ids of every node in the tree (all depths). */
+    private static void collectAllIds(List<TreeNode> nodes, List<Long> out) {
+        for (TreeNode n : nodes) {
+            out.add(n.id);
+            collectAllIds(n.children, out);
+        }
     }
 
     /** Show/hide an "offline — cached copy" note under the title. */

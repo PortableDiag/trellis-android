@@ -46,12 +46,14 @@ public class BasketView extends View {
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
     /** Theme-specific card rendering (Sticky = one solid color; Futuristic = beveled). */
-    private final boolean stickyTheme, futuristicTheme;
+    private final boolean stickyTheme, futuristicTheme, glowTheme;
     private static final int STICKY_YELLOW = Color.rgb(0xff, 0xe9, 0x6b);
     private static final int[] DEFAULT_CARD_COLOR = {0x3b, 0x82, 0xf6};
+    private static final float BEVEL = 18f; // Futuristic corner-cut (bigger = more skewed)
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint titlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint bodyPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
@@ -99,7 +101,11 @@ public class BasketView extends View {
         String themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
         stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(themeAccent);
         futuristicTheme = com.trellis.viewer.util.ThemePrefs.FUTURISTIC.equals(themeAccent);
+        // The radiant neon themes get an accent glow behind each card.
+        glowTheme = futuristicTheme
+                || com.trellis.viewer.util.ThemePrefs.SYNTHWAVE.equals(themeAccent);
 
+        glow.setStyle(Paint.Style.STROKE);
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setStrokeWidth(1.5f);
         stroke.setColor(cOutline);
@@ -193,6 +199,25 @@ public class BasketView extends View {
         RectF titleRect = new RectF(c.x, c.y, c.x + c.w, c.y + titleH);
         int acc = c.color != null ? Color.rgb(c.color[0], c.color[1], c.color[2]) : cSurfaceVariant;
 
+        // Radiant glow behind the frame — concentric accent rings, brightest at
+        // the edge, fading outward (the neon themes: Futuristic / SynthWave).
+        if (glowTheme) {
+            for (int i = 5; i >= 1; i--) {
+                float grow = i * 2.2f;
+                int a = (int) ((0.05f + 0.035f * (5 - i)) * 255); // inner rings brighter
+                glow.setColor(acc);
+                glow.setAlpha(a);
+                glow.setStrokeWidth(2.2f);
+                RectF g = new RectF(rect.left - grow, rect.top - grow,
+                        rect.right + grow, rect.bottom + grow);
+                if (futuristicTheme) {
+                    canvas.drawPath(bevelDiag(g, BEVEL + grow), glow);
+                } else {
+                    canvas.drawRoundRect(g, 8 + grow, 8 + grow, glow);
+                }
+            }
+        }
+
         if (stickyTheme) {
             // One solid paper color for the whole note — header and body the same,
             // like a real sticky. A default (uncolored) card is yellow.
@@ -205,10 +230,16 @@ public class BasketView extends View {
         } else if (futuristicTheme) {
             // Angular tech panel: beveled corners (top-right + bottom-left) + cyan edge.
             fill.setColor(cSurface);
-            canvas.drawPath(bevelDiag(rect, 12f), fill);
+            canvas.drawPath(bevelDiag(rect, BEVEL), fill);
             accent.setColor(acc);
-            accent.setAlpha(72);
-            canvas.drawPath(bevelTitle(titleRect, 12f), accent);
+            accent.setAlpha(78);
+            canvas.drawPath(bevelTitle(titleRect, BEVEL), accent);
+            // A brighter diagonal on the top-right cut plays up the skew.
+            accent.setAlpha(255);
+            accent.setStyle(Paint.Style.STROKE);
+            accent.setStrokeWidth(2.2f);
+            canvas.drawLine(rect.right - BEVEL, rect.top, rect.right, rect.top + BEVEL, accent);
+            accent.setStyle(Paint.Style.FILL);
         } else {
             fill.setColor(cSurface);
             canvas.drawRoundRect(rect, 8, 8, fill);
@@ -247,7 +278,7 @@ public class BasketView extends View {
             canvas.drawRoundRect(rect, 8, 8, stroke);
         } else if (futuristicTheme) {
             stroke.setColor(acc);
-            canvas.drawPath(bevelDiag(rect, 12f), stroke);
+            canvas.drawPath(bevelDiag(rect, BEVEL), stroke);
         } else {
             stroke.setColor(cOutline);
             canvas.drawRoundRect(rect, 8, 8, stroke);
