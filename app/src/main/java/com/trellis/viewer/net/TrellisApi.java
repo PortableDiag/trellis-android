@@ -108,6 +108,15 @@ public class TrellisApi {
         return new JSONObject(getCached("/nodes/" + id));
     }
 
+    /** GET /instance — which document this server is serving
+     *  ({@code {app,version,document,path,port,lan,nodes,unsaved_changes}}). One
+     *  instance serves one document, so this is how a server identifies itself;
+     *  used to name entries in the server switcher. Not cached — it's a liveness
+     *  question, and a stale answer would mislabel a server. */
+    public JSONObject instance() throws IOException, JSONException {
+        return new JSONObject(get("/instance"));
+    }
+
     /** GET an image card's image bytes (base64) — {@code images/{idx}}. Cached. */
     public String imageBase64(long node, long card, int idx) throws IOException, JSONException {
         JSONObject o = new JSONObject(getCached("/nodes/" + node + "/cards/" + card + "/images/" + idx));

@@ -15,6 +15,11 @@
         app:showAsAction="ifRoom"/>
 
     <item
+        android:id="@+id/action_switch_server"
+        android:title="Switch workstation"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_agenda"
         android:title="Agenda"
         app:showAsAction="never"/>

@@ -15,6 +15,18 @@ document from the desktop over HTTP on your local network.
 2. In the **app**: open Settings (gear), enter the host/IP, port (default 7373),
    and API key, then **Test connection**.
 
+### Several documents
+
+A Trellis instance serves exactly one document, so the desktop runs one instance
+per document, each on its own port (`trellis ~/work.ron --port 7373 …`). Add one
+entry per document in **Settings → Workstations**: **Add**, fill in host/port/key,
+and **Test connection** — the test reports which document that port is serving and
+offers its name as the label. Switch between them from the tree screen's overflow
+menu (**Switch workstation**); the active one is shown under the title.
+
+Each server keeps its **own** offline cache and its own expanded-node state, so
+switching is instant and folds from one document never apply to another.
+
 Only use on trusted networks; the desktop API is key-gated but unencrypted (HTTP).
 
 ## Build

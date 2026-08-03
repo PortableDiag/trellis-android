@@ -106,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
             return true;
+        } else if (id == R.id.action_switch_server) {
+            switchServer();
+            return true;
         } else if (id == R.id.action_search) {
             startActivity(new Intent(this, SearchActivity.class));
             return true;
@@ -130,6 +133,41 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Pick which Trellis instance (i.e. which document) to view. Switching swaps
+     * the active server and reloads from scratch: the expand state and the live
+     * waiter are both tied to the old document, so neither can be carried over.
+     * Each server has its own offline cache, so the swap is instant even offline.
+     */
+    private void switchServer() {
+        java.util.List<ServerPrefs.Server> all = ServerPrefs.servers(this);
+        if (all.size() < 2) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return;
+        }
+        String[] labels = new String[all.size()];
+        for (int i = 0; i < all.size(); i++) {
+            labels[i] = all.get(i).label() + "\n" + all.get(i).subtitle();
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Switch workstation")
+                .setSingleChoiceItems(labels, ServerPrefs.activeIndex(this), (d, which) -> {
+                    d.dismiss();
+                    if (which == ServerPrefs.activeIndex(this)) return;
+                    ServerPrefs.setActive(this, which);
+                    // Everything on screen belongs to the previous document.
+                    waiter.stop();
+                    roots.clear();
+                    expandedIds.clear();
+                    rebuildVisible();
+                    loadExpandedState();
+                    load();
+                    waiter.start(this, ui, this::load);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void load() {
@@ -221,11 +259,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** Show/hide an "offline — cached copy" note under the title. */
+    /** Subtitle: which workstation we're viewing, plus the offline note. With
+     *  several servers configured, knowing which document you're looking at
+     *  matters more than the extra line costs. */
     private void setOfflineBanner(boolean offline) {
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
+        if (getSupportActionBar() == null) return;
+        String who = ServerPrefs.servers(this).size() > 1 ? ServerPrefs.activeLabel(this) : "";
+        String sub;
+        if (offline) {
+            sub = who.isEmpty() ? "⚠ Offline — cached copy" : who + " · ⚠ Offline — cached copy";
+        } else {
+            sub = who.isEmpty() ? null : who;
         }
+        getSupportActionBar().setSubtitle(sub);
     }
 
     /** Apply the saved folds to the current tree and show the visible rows. */
@@ -248,9 +294,18 @@ public class MainActivity extends AppCompatActivity {
 
     // ---- Persisted fold state -----------------------------------------------
 
+    /** Which folds belong to which document: node ids are per-document, so the
+     *  expand state is namespaced by server the same way the offline cache is.
+     *  Sharing one key would fold arbitrary nodes when you switch. */
+    private String expandedKey() {
+        java.util.List<ServerPrefs.Server> all = ServerPrefs.servers(this);
+        if (all.size() <= 1) return K_EXPANDED; // single server: the original key
+        return K_EXPANDED + "_" + Integer.toHexString(ServerPrefs.baseUrl(this).hashCode());
+    }
+
     private void loadExpandedState() {
         java.util.Set<String> saved = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getStringSet(K_EXPANDED, null);
+                .getStringSet(expandedKey(), null);
         expandedIds.clear();
         if (saved != null) {
             for (String s : saved) {
@@ -268,7 +323,7 @@ public class MainActivity extends AppCompatActivity {
         for (Long id : expandedIds) {
             out.add(String.valueOf(id));
         }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putStringSet(K_EXPANDED, out).apply();
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putStringSet(expandedKey(), out).apply();
     }
 
     private void showStatus(String msg) {
