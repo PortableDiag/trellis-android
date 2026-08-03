@@ -52,7 +52,7 @@ public class KanbanActivity extends AppCompatActivity {
 
     static class Card {
         long node, card;
-        String title = "", nodeTitle = "", due = "";
+        String title = "", nodeTitle = "", nodePath = "", due = "";
         int[] color;
         final List<String> tags = new ArrayList<>();
     }
@@ -117,6 +117,8 @@ public class KanbanActivity extends AppCompatActivity {
                         card.card = cj.optLong("card");
                         card.title = cj.optString("title", "");
                         card.nodeTitle = cj.optString("node_title", "");
+                        // See AgendaActivity: the parent title alone is ambiguous.
+                        card.nodePath = cj.optString("node_path", "");
                         card.due = cj.optString("due", "");
                         JSONArray col = cj.optJSONArray("color");
                         if (col != null && col.length() == 3) {
@@ -238,7 +240,7 @@ public class KanbanActivity extends AppCompatActivity {
         }
 
         TextView node = new TextView(this);
-        node.setText(card.nodeTitle);
+        node.setText(card.nodePath.isEmpty() ? card.nodeTitle : card.nodePath);
         node.setTextColor(onVariant);
         node.setTextSize(11f);
         node.setPadding(0, dp(4), 0, 0);

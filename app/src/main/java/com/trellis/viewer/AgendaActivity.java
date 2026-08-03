@@ -52,7 +52,7 @@ public class AgendaActivity extends AppCompatActivity {
 
     static class Task {
         long node, card;
-        String title = "", nodeTitle = "", due = "", bucket = "";
+        String title = "", nodeTitle = "", nodePath = "", due = "", bucket = "";
     }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +108,10 @@ public class AgendaActivity extends AppCompatActivity {
                     t.card = o.optLong("card");
                     t.title = o.optString("title", "");
                     t.nodeTitle = o.optString("node_title", "");
+                    // Full breadcrumb: basket names like "Open Items" repeat
+                    // across projects, so the bare title can't say which project
+                    // a task belongs to. Older desktops don't send it.
+                    t.nodePath = o.optString("node_path", "");
                     t.due = o.optString("due", "");
                     t.bucket = o.optString("bucket", "nodate");
                     tasks.add(t);
@@ -192,7 +196,8 @@ public class AgendaActivity extends AppCompatActivity {
 
         TextView sub = new TextView(this);
         String dueTxt = t.due.isEmpty() ? "" : "⏳ " + t.due;
-        sub.setText(dueTxt.isEmpty() ? t.nodeTitle : dueTxt + "   ·   " + t.nodeTitle);
+        String where = t.nodePath.isEmpty() ? t.nodeTitle : t.nodePath;
+        sub.setText(dueTxt.isEmpty() ? where : dueTxt + "   ·   " + where);
         sub.setTextColor("overdue".equals(t.bucket) ? DUE_OVERDUE
                 : "today".equals(t.bucket) ? DUE_TODAY : onVariant);
         sub.setTextSize(13f);
