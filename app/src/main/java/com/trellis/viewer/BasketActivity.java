@@ -30,6 +30,7 @@ import com.trellis.viewer.net.LiveWaiter;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
 import com.trellis.viewer.ui.BasketView;
+import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
 import java.util.List;
@@ -72,6 +73,9 @@ public class BasketActivity extends AppCompatActivity {
         appliedAccent = ThemePrefs.accent(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_basket);
+        // Android 15 lays every app out edge-to-edge; keep our content
+        // out from under the status and navigation bars.
+        SystemBars.fit(findViewById(android.R.id.content));
 
         nodeId = getIntent().getLongExtra(EXTRA_NODE_ID, -1);
         String title = getIntent().getStringExtra(EXTRA_NODE_TITLE);

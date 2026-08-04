@@ -23,6 +23,7 @@ import com.google.android.material.color.MaterialColors;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
 import com.trellis.viewer.util.ProjectFilter;
+import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
 import org.json.JSONArray;
@@ -74,6 +75,9 @@ public class KanbanActivity extends AppCompatActivity {
         setTheme(ThemePrefs.themeRes(this));
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_panel);
+        // Android 15 lays every app out edge-to-edge; keep our content
+        // out from under the status and navigation bars.
+        SystemBars.fit(findViewById(android.R.id.content));
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);

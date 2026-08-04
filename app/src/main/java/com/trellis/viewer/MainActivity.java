@@ -22,6 +22,7 @@ import com.trellis.viewer.model.TreeNode;
 import com.trellis.viewer.net.LiveWaiter;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.SystemBars;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +63,9 @@ public class MainActivity extends AppCompatActivity {
         appliedAccent = com.trellis.viewer.util.ThemePrefs.accent(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        // Android 15 lays every app out edge-to-edge; keep our content
+        // out from under the status and navigation bars.
+        SystemBars.fit(findViewById(android.R.id.content));
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);

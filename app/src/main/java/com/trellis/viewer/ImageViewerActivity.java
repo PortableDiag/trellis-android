@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
@@ -19,6 +20,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
 import com.trellis.viewer.ui.ZoomImageView;
+import com.trellis.viewer.util.SystemBars;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,7 +57,13 @@ public class ImageViewerActivity extends AppCompatActivity {
         title = getIntent().getStringExtra(EXTRA_TITLE);
         caption = findViewById(R.id.caption);
 
-        findViewById(R.id.close).setOnClickListener(v -> finish());
+        // The image itself is meant to fill the screen, so this is the one place
+        // edge-to-edge earns its keep — only the overlaid controls step aside.
+        View close = findViewById(R.id.close);
+        SystemBars.fitBottom(caption);
+        SystemBars.fitTopMargin(close);
+
+        close.setOnClickListener(v -> finish());
 
         ViewPager2 pager = findViewById(R.id.pager);
         pager.setAdapter(new PageAdapter());

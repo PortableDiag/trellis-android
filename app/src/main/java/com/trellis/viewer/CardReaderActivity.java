@@ -7,6 +7,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
 import io.noties.markwon.Markwon;
@@ -29,6 +30,9 @@ public class CardReaderActivity extends AppCompatActivity {
         setTheme(ThemePrefs.themeRes(this));
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_card_reader);
+        // Android 15 lays every app out edge-to-edge; keep our content
+        // out from under the status and navigation bars.
+        SystemBars.fit(findViewById(android.R.id.content));
 
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         String body = getIntent().getStringExtra(EXTRA_BODY);

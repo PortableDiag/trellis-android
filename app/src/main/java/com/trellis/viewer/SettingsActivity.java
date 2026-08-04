@@ -18,6 +18,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
 import java.util.concurrent.ExecutorService;
@@ -45,6 +46,9 @@ public class SettingsActivity extends AppCompatActivity {
         setTheme(ThemePrefs.themeRes(this));
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        // Android 15 lays every app out edge-to-edge; keep our content
+        // out from under the status and navigation bars.
+        SystemBars.fit(findViewById(android.R.id.content));
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
