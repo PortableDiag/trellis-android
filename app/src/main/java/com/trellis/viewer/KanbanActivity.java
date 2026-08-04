@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.HorizontalScrollView;
@@ -20,6 +22,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.color.MaterialColors;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.ProjectFilter;
 import com.trellis.viewer.util.ThemePrefs;
 
 import org.json.JSONArray;
@@ -44,6 +47,16 @@ public class KanbanActivity extends AppCompatActivity {
     private LinearLayout columns; // horizontal row of columns
     private TextView status;
     private long todayDays;
+    /** Last load came from the offline cache (kept so the subtitle can show both
+     *  that and the active project). */
+    private boolean offline;
+
+    /** Which saved filter this screen owns (the Agenda keeps its own). */
+    private static final String VIEW = "kanban";
+
+    /** Everything loaded, before the project filter. */
+    private final List<Col> all = new ArrayList<>();
+    private final List<ProjectFilter.Project> projects = new ArrayList<>();
 
     static class Col {
         String status = "";
@@ -51,8 +64,8 @@ public class KanbanActivity extends AppCompatActivity {
     }
 
     static class Card {
-        long node, card;
-        String title = "", nodeTitle = "", nodePath = "", due = "";
+        long node, card, project;
+        String title = "", nodeTitle = "", nodePath = "", projectTitle = "", due = "";
         int[] color;
         final List<String> tags = new ArrayList<>();
     }
@@ -119,7 +132,12 @@ public class KanbanActivity extends AppCompatActivity {
                         card.nodeTitle = cj.optString("node_title", "");
                         // See AgendaActivity: the parent title alone is ambiguous.
                         card.nodePath = cj.optString("node_path", "");
-                        card.due = cj.optString("due", "");
+                        card.project = cj.optLong("project");
+                        card.projectTitle = cj.optString("project_title", "");
+                        // A card with no due date comes back as JSON null, and
+                        // org.json's optString turns that into the STRING "null" —
+                        // which is how "⏳ null" ended up on every undated card.
+                        card.due = cj.isNull("due") ? "" : cj.optString("due", "");
                         JSONArray col = cj.optJSONArray("color");
                         if (col != null && col.length() == 3) {
                             card.color = new int[]{col.optInt(0), col.optInt(1), col.optInt(2)};
@@ -144,13 +162,81 @@ public class KanbanActivity extends AppCompatActivity {
                 setOfflineBanner(err == null && cached);
                 if (err != null) {
                     showStatus("Couldn't load the board.\n\n" + err);
-                } else if (result.isEmpty()) {
-                    showStatus("No cards with a status:: property yet.");
                 } else {
-                    render(result);
+                    all.clear();
+                    all.addAll(result);
+                    projects.clear();
+                    for (Col c : result) {
+                        for (Card cd : c.cards) {
+                            boolean seen = false;
+                            for (ProjectFilter.Project pr : projects) {
+                                if (pr.id == cd.project) { seen = true; break; }
+                            }
+                            if (!seen && cd.project != 0) {
+                                projects.add(new ProjectFilter.Project(cd.project, cd.projectTitle));
+                            }
+                        }
+                    }
+                    ProjectFilter.prune(this, VIEW, projects);
+                    apply();
                 }
             });
         });
+    }
+
+    /** Re-render with the current project filter applied. Columns that end up
+     *  empty are dropped — unlike the desktop there's no drag-and-drop here, so
+     *  an empty column isn't a drop target, just noise. */
+    private void apply() {
+        long pick = ProjectFilter.get(this, VIEW);
+        List<Col> shown = new ArrayList<>();
+        for (Col c : all) {
+            if (pick == ProjectFilter.ALL) {
+                shown.add(c);
+                continue;
+            }
+            Col f = new Col();
+            f.status = c.status;
+            for (Card cd : c.cards) {
+                if (cd.project == pick) f.cards.add(cd);
+            }
+            if (!f.cards.isEmpty()) shown.add(f);
+        }
+        invalidateOptionsMenu();
+        setSubtitle();
+        if (all.isEmpty()) {
+            showStatus("No cards with a status property yet.");
+        } else if (shown.isEmpty()) {
+            showStatus("No cards in this project.\n\nUse Filter by project to widen it.");
+        } else {
+            render(shown);
+        }
+    }
+
+    /** Toolbar subtitle: the active project, plus the offline note. */
+    private void setSubtitle() {
+        if (getSupportActionBar() == null) return;
+        String who = ProjectFilter.activeTitle(this, VIEW, projects);
+        String sub;
+        if (offline) {
+            sub = who.isEmpty() ? "⚠ Offline — cached copy" : who + " · ⚠ Offline — cached copy";
+        } else {
+            sub = who.isEmpty() ? null : who;
+        }
+        getSupportActionBar().setSubtitle(sub);
+    }
+
+    @Override public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_panel, menu);
+        return true;
+    }
+
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_filter_project) {
+            ProjectFilter.choose(this, VIEW, projects, this::apply);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void render(List<Col> cols) {
@@ -282,7 +368,8 @@ public class KanbanActivity extends AppCompatActivity {
 
     private void setOfflineBanner(boolean offline) {
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
+            this.offline = offline;
+            setSubtitle();
         }
     }
 

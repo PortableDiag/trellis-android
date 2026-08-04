@@ -8,6 +8,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -19,6 +21,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.color.MaterialColors;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.ProjectFilter;
 import com.trellis.viewer.util.ThemePrefs;
 
 import org.json.JSONArray;
@@ -43,6 +46,9 @@ public class AgendaActivity extends AppCompatActivity {
 
     private LinearLayout container;
     private TextView status;
+    /** Last load came from the offline cache (kept so the subtitle can show both
+     *  that and the active project). */
+    private boolean offline;
 
     /** Bucket keys in display order, with human labels. */
     private static final String[][] BUCKETS = {
@@ -50,10 +56,18 @@ public class AgendaActivity extends AppCompatActivity {
             {"later", "Later"}, {"nodate", "No date"},
     };
 
+    /** Which saved filter this screen owns (the Kanban board keeps its own). */
+    private static final String VIEW = "agenda";
+
     static class Task {
-        long node, card;
-        String title = "", nodeTitle = "", nodePath = "", due = "", bucket = "";
+        long node, card, project;
+        String title = "", nodeTitle = "", nodePath = "", projectTitle = "", due = "", bucket = "";
     }
+
+    /** Everything loaded, before the project filter — so the filter menu can
+     *  still offer projects you're not currently looking at. */
+    private final List<Task> all = new ArrayList<>();
+    private final List<ProjectFilter.Project> projects = new ArrayList<>();
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(ThemePrefs.themeRes(this));
@@ -112,6 +126,8 @@ public class AgendaActivity extends AppCompatActivity {
                     // across projects, so the bare title can't say which project
                     // a task belongs to. Older desktops don't send it.
                     t.nodePath = o.optString("node_path", "");
+                    t.project = o.optLong("project");
+                    t.projectTitle = o.optString("project_title", "");
                     t.due = o.optString("due", "");
                     t.bucket = o.optString("bucket", "nodate");
                     tasks.add(t);
@@ -126,13 +142,68 @@ public class AgendaActivity extends AppCompatActivity {
                 setOfflineBanner(err == null && cached);
                 if (err != null) {
                     showStatus("Couldn't load the agenda.\n\n" + err);
-                } else if (result.isEmpty()) {
-                    showStatus("No tasks with a due:: date yet.");
                 } else {
-                    render(result);
+                    all.clear();
+                    all.addAll(result);
+                    projects.clear();
+                    for (Task t : result) {
+                        boolean seen = false;
+                        for (ProjectFilter.Project pr : projects) {
+                            if (pr.id == t.project) { seen = true; break; }
+                        }
+                        if (!seen && t.project != 0) {
+                            projects.add(new ProjectFilter.Project(t.project, t.projectTitle));
+                        }
+                    }
+                    ProjectFilter.prune(this, VIEW, projects);
+                    apply();
                 }
             });
         });
+    }
+
+    /** Re-render with the current project filter applied. */
+    private void apply() {
+        long pick = ProjectFilter.get(this, VIEW);
+        List<Task> shown = new ArrayList<>();
+        for (Task t : all) {
+            if (pick == ProjectFilter.ALL || t.project == pick) shown.add(t);
+        }
+        invalidateOptionsMenu();
+        setSubtitle();
+        if (all.isEmpty()) {
+            showStatus("No tasks with a due date yet.");
+        } else if (shown.isEmpty()) {
+            showStatus("No tasks in this project.\n\nUse Filter by project to widen it.");
+        } else {
+            render(shown);
+        }
+    }
+
+    /** Toolbar subtitle: the active project, plus the offline note. */
+    private void setSubtitle() {
+        if (getSupportActionBar() == null) return;
+        String who = ProjectFilter.activeTitle(this, VIEW, projects);
+        String sub;
+        if (offline) {
+            sub = who.isEmpty() ? "⚠ Offline — cached copy" : who + " · ⚠ Offline — cached copy";
+        } else {
+            sub = who.isEmpty() ? null : who;
+        }
+        getSupportActionBar().setSubtitle(sub);
+    }
+
+    @Override public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_panel, menu);
+        return true;
+    }
+
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_filter_project) {
+            ProjectFilter.choose(this, VIEW, projects, this::apply);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void render(List<Task> tasks) {
@@ -219,7 +290,8 @@ public class AgendaActivity extends AppCompatActivity {
 
     private void setOfflineBanner(boolean offline) {
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
+            this.offline = offline;
+            setSubtitle();
         }
     }
 

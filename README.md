@@ -70,6 +70,12 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
   or a **picked image** as a card in that node. (Read + capture; other edits are
   still done on the desktop.)
+- **Agenda and Kanban** (overflow menu) — the desktop task views, read-only. Each
+  row names the task's **full basket path** (`Super Weapon News › Open Items`),
+  because basket names repeat across projects. **Filter by project** in either
+  view's overflow menu narrows it to one; the two views remember their own choice,
+  per server, so scoping the board doesn't narrow your agenda. Needs Trellis
+  ≥ 0.71.0 for the project fields.
 - Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).
 - **Offline cache (read-only)** — every basket and image you open is cached on the
   phone, so when the LAN Trellis goes offline you can still read what you've
