@@ -10,7 +10,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
-import io.noties.markwon.Markwon;
+import com.trellis.viewer.util.Md;
 
 /**
  * Full-screen, scrollable reader for a text, code, checklist, or table card's
@@ -59,7 +59,7 @@ public class CardReaderActivity extends AppCompatActivity {
             bodyView.setHorizontallyScrolling(false);
             int pad = Math.round(32 * getResources().getDisplayMetrics().density);
             bodyView.setMaxWidth(getResources().getDisplayMetrics().widthPixels - pad);
-            Markwon.create(this).setMarkdown(bodyView, body);
+            Md.create(this).setMarkdown(bodyView, body);
         }
     }
 }

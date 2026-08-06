@@ -17,8 +17,8 @@ android {
         applicationId "com.trellis.viewer"
         minSdk 26
         targetSdk 35
-        versionCode 22
-        versionName "0.20.1"
+        versionCode 23
+        versionName "0.20.2"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -67,4 +67,8 @@ dependencies {
     implementation 'androidx.preference:preference:1.2.1'
     // CommonMark rendering for text cards (matches the desktop's markdown).
     implementation 'io.noties.markwon:core:4.6.2'
+    // GFM tables. `core` alone renders a markdown table as its literal pipes and
+    // dashes, which is unreadable on a phone — the desktop renders them, so the
+    // viewer has to as well.
+    implementation 'io.noties.markwon:ext-tables:4.6.2'
 }

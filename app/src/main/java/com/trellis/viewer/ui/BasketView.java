@@ -349,7 +349,7 @@ public class BasketView extends View {
         if (c.body == null || c.body.isEmpty()) {
             rendered = "";
         } else {
-            if (markwon == null) markwon = Markwon.create(getContext());
+            if (markwon == null) markwon = com.trellis.viewer.util.Md.create(getContext());
             rendered = markwon.toMarkdown(c.body);
         }
         mdCache.put(c.id, rendered);
