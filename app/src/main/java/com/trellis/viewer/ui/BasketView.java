@@ -349,8 +349,10 @@ public class BasketView extends View {
         if (c.body == null || c.body.isEmpty()) {
             rendered = "";
         } else {
-            if (markwon == null) markwon = com.trellis.viewer.util.Md.create(getContext());
-            rendered = markwon.toMarkdown(c.body);
+            // The canvas draws into a StaticLayout, not a TextView, so it uses
+            // the plain builder and flattens tables first — see Md.createPlain.
+            if (markwon == null) markwon = com.trellis.viewer.util.Md.createPlain(getContext());
+            rendered = markwon.toMarkdown(com.trellis.viewer.util.Md.flattenTables(c.body));
         }
         mdCache.put(c.id, rendered);
         return rendered;
