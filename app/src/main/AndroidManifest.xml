@@ -24,6 +24,15 @@
             </intent-filter>
         </activity>
 
+        <!-- The unlock gate. excludeFromRecents so it never becomes the task's
+             face in the switcher, singleTop so a re-entry doesn't stack gates. -->
+        <activity
+            android:name=".LockActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:noHistory="true"/>
+
         <activity
             android:name=".SettingsActivity"
             android:exported="false"/>

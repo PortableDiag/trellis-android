@@ -17,8 +17,8 @@ android {
         applicationId "com.trellis.viewer"
         minSdk 26
         targetSdk 35
-        versionCode 24
-        versionName "0.20.3"
+        versionCode 25
+        versionName "0.21.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -49,6 +49,12 @@ android {
         }
     }
 
+    // Name the deprecated APIs rather than the "some input files" note — a
+    // deprecation you cannot see is one you cannot decide about.
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs << "-Xlint:deprecation"
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -65,6 +71,9 @@ dependencies {
     implementation 'androidx.viewpager2:viewpager2:1.1.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.preference:preference:1.2.1'
+    // App lock. BiometricPrompt with the device credential as the fallback, so a
+    // phone with no enrolled fingerprint still has a way in.
+    implementation 'androidx.biometric:biometric:1.1.0'
     // CommonMark rendering for text cards (matches the desktop's markdown).
     implementation 'io.noties.markwon:core:4.6.2'
     // GFM tables. `core` alone renders a markdown table as its literal pipes and

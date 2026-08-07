@@ -38,6 +38,28 @@ Only use on trusted networks; the desktop API is key-gated but unencrypted (HTTP
 Java + XML Views, Material 3. AGP 8.7.3 / Gradle 8.11.1, `compileSdk 35`,
 `minSdk 26`, Java 17.
 
+## App lock
+
+**Settings → Security → Require unlock to open.** Off by default. With it on, the
+app asks for your fingerprint or face — with the phone's PIN, pattern or password
+as the fallback — before it will show any notes, and it keeps the notes out of the
+recents switcher and out of screenshots (`FLAG_SECURE`).
+
+**Lock after** chooses how long a trip out of the app is forgiven: *Immediately*,
+*1 minute* (default) or *5 minutes*. Moving between screens inside the app never
+re-prompts; only leaving it does. A restart always re-asks — the unlocked state is
+held in memory and never written down.
+
+The toggle is disabled if the phone has no screen lock of its own, because there
+would be no credential to check and the prompt would always open.
+
+**What this does and doesn't protect.** It guards the screen, not the bytes. The
+offline cache is plain JSON in the app's private storage and the API key is a
+plain string in its preferences — unreachable on a locked, non-rooted phone (the
+app also sets `allowBackup="false"`), but readable from a rooted or ADB-enabled
+device whatever the UI does. Encrypting both behind an Android Keystore key is a
+separate, planned piece of work.
+
 ## Themes
 
 Two-axis appearance (dark/light × accent), matching the house style:

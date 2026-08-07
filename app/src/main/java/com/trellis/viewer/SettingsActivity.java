@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.EditText;
 import android.widget.RadioGroup;
+import android.view.View;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
@@ -18,6 +19,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.LockPrefs;
 import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
@@ -73,6 +75,8 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.server_delete).setOnClickListener(v -> deleteServer());
         findViewById(R.id.test_button).setOnClickListener(v -> testConnection());
 
+        bindLock();
+
         // Appearance
         MaterialSwitch darkSwitch = findViewById(R.id.dark_switch);
         darkSwitch.setChecked(ThemePrefs.isDark(this));
@@ -105,6 +109,58 @@ public class SettingsActivity extends AppCompatActivity {
     @Override protected void onPause() {
         super.onPause();
         save();
+    }
+
+    /**
+     * The app lock. The toggle is only meaningful if the phone itself has a
+     * PIN, pattern or password — without one there is no credential to check,
+     * so the switch is disabled and says why rather than offering a lock that
+     * would always open.
+     */
+    private void bindLock() {
+        MaterialSwitch lockSwitch = findViewById(R.id.lock_switch);
+        TextView note = findViewById(R.id.lock_note);
+        RadioGroup graceGroup = findViewById(R.id.lock_grace_group);
+        View graceLabel = findViewById(R.id.lock_grace_label);
+
+        boolean secure = LockPrefs.deviceIsSecure(this);
+        lockSwitch.setEnabled(secure);
+        lockSwitch.setChecked(secure && LockPrefs.enabled(this));
+
+        long g = LockPrefs.grace(this);
+        graceGroup.check(g == LockPrefs.GRACE_IMMEDIATE ? R.id.lock_grace_immediate
+                       : g == LockPrefs.GRACE_DEFAULT   ? R.id.lock_grace_1m
+                                                        : R.id.lock_grace_5m);
+
+        Runnable refresh = () -> {
+            boolean on = secure && LockPrefs.enabled(this);
+            int vis = on ? View.VISIBLE : View.GONE;
+            graceLabel.setVisibility(vis);
+            graceGroup.setVisibility(vis);
+            note.setText(!secure
+                    ? "Set a screen lock (PIN, pattern or password) on this phone first — "
+                      + "without one there is nothing for the app to check."
+                    : on
+                    ? "Fingerprint or face, with your PIN as the fallback. Also keeps your "
+                      + "notes out of the recents switcher and out of screenshots."
+                    : "Ask for a fingerprint, face or PIN before showing your notes.");
+        };
+        refresh.run();
+
+        lockSwitch.setOnCheckedChangeListener((b, checked) -> {
+            LockPrefs.setEnabled(this, checked);
+            refresh.run();
+            // FLAG_SECURE is set per window when an activity is created, so the
+            // screen you are looking at has to be recreated to pick it up.
+            recreate();
+        });
+
+        graceGroup.setOnCheckedChangeListener((group, id) -> {
+            long ms = id == R.id.lock_grace_immediate ? LockPrefs.GRACE_IMMEDIATE
+                    : id == R.id.lock_grace_1m        ? LockPrefs.GRACE_DEFAULT
+                                                      : 5 * 60_000L;
+            LockPrefs.setGrace(this, ms);
+        });
     }
 
     /** Show the active server in the fields and on the picker button. */
