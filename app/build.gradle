@@ -17,8 +17,8 @@ android {
         applicationId "com.trellis.viewer"
         minSdk 26
         targetSdk 35
-        versionCode 25
-        versionName "0.21.0"
+        versionCode 26
+        versionName "0.21.1"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -31,6 +31,24 @@ android {
                 keyPassword keystoreProperties['keyPassword']
                 enableV2Signing true
                 enableV3Signing true
+            }
+        }
+    }
+
+    // A release build without the keystore used to produce app-release-UNSIGNED.apk
+    // and say so only in the filename — which is how six releases went out carrying
+    // the debug-signed APK instead. Fail loudly rather than emit an artifact that
+    // cannot be shipped.
+    tasks.matching { it.name == 'assembleRelease' || it.name == 'bundleRelease' }
+         .configureEach { task ->
+        task.doFirst {
+            if (!keystoreProperties['storeFile']) {
+                throw new GradleException(
+                    "No keystore.properties — this build would produce an unsigned APK.\n" +
+                    "Create keystore.properties beside build.gradle with storeFile /\n" +
+                    "storePassword / keyAlias / keyPassword (see README → Releasing).\n" +
+                    "Never ship the debug APK instead: its key is the same well-known\n" +
+                    "key on every machine with the SDK.")
             }
         }
     }

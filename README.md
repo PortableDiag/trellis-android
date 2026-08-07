@@ -60,6 +60,30 @@ app also sets `allowBackup="false"`), but readable from a rooted or ADB-enabled
 device whatever the UI does. Encrypting both behind an Android Keystore key is a
 separate, planned piece of work.
 
+## Releasing
+
+```sh
+./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
+```
+
+Signing needs `keystore.properties` beside `build.gradle` (gitignored, along with
+`*.jks`):
+
+```
+storeFile=trellis-release.jks
+storePassword=…
+keyAlias=trellis
+keyPassword=…
+```
+
+Without it the build **fails** rather than emitting an unsigned APK — up to
+v0.21.0 it produced `app-release-unsigned.apk` and the *debug* APK got shipped in
+its place, which meant six releases went out signed with the public Android debug
+key. Ship the artifact from `assembleRelease`, never the one from `assembleDebug`.
+
+**Back up `trellis-release.jks`.** Losing it means never being able to update an
+installed copy of the app again.
+
 ## Themes
 
 Two-axis appearance (dark/light × accent), matching the house style:
