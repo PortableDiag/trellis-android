@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.trellis.viewer.net.ServerPrefs;
+import com.trellis.viewer.util.CaptureFiles;
 import com.trellis.viewer.util.LockPrefs;
 import com.trellis.viewer.util.ThemePrefs;
 
@@ -22,6 +23,11 @@ public class TrellisApp extends Application {
         super.onCreate();
         ThemePrefs.applyNightMode(this);
         registerActivityLifecycleCallbacks(new LockCallbacks());
+        // Clear camera scratch files left by an older build, a crash, or a
+        // capture this process did not survive. They are plain JPEGs — the one
+        // thing that cannot live in the encrypted cache, because the camera app
+        // writes them — so they must not be allowed to accumulate.
+        CaptureFiles.sweep(this);
     }
 
     /**

@@ -77,6 +77,12 @@ would mean losing your cache for adding a finger.
 
 With the app lock off, the data is still encrypted, just not tied to an unlock.
 
+**One thing cannot be encrypted, and is deleted instead.** Taking a photo needs a
+real file on disk, because the camera is a separate app writing into it. That
+scratch file is removed as soon as the image has been read — whether the upload
+succeeded, failed, or you cancelled the shot — and any left by an older build or
+an interrupted capture are swept away at startup.
+
 **If you remove your phone's screen lock entirely, the key is destroyed** — by
 Android, by design, and there is no recovery. The app notices, clears what it can
 no longer read, and asks for the API key again.

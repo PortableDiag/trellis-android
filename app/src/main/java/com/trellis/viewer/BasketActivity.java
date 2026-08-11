@@ -28,6 +28,7 @@ import java.io.InputStream;
 import com.trellis.viewer.model.Card;
 import com.trellis.viewer.net.LiveWaiter;
 import com.trellis.viewer.net.ServerPrefs;
+import com.trellis.viewer.util.CaptureFiles;
 import com.trellis.viewer.net.TrellisApi;
 import com.trellis.viewer.ui.BasketView;
 import com.trellis.viewer.util.SystemBars;
@@ -60,6 +61,11 @@ public class BasketActivity extends AppCompatActivity {
     private ActivityResultLauncher<PickVisualMediaRequest> pickImage;
     private ActivityResultLauncher<Uri> takePhoto;
     private Uri pendingPhotoUri;
+    /** The file behind {@link #pendingPhotoUri}. Kept as a File, not re-derived
+     *  from the Uri, so the delete below can only ever reach a capture of ours —
+     *  {@link #uploadImage} is shared with the gallery picker, whose Uri points at
+     *  the user's own photo library. */
+    private java.io.File pendingPhotoFile;
 
     private final Runnable poll = new Runnable() {
         @Override public void run() {
@@ -100,7 +106,15 @@ public class BasketActivity extends AppCompatActivity {
                 });
         takePhoto = registerForActivityResult(
                 new ActivityResultContracts.TakePicture(), ok -> {
-                    if (ok && pendingPhotoUri != null) uploadImage(pendingPhotoUri, "Photo");
+                    try {
+                        if (ok && pendingPhotoUri != null) uploadImage(pendingPhotoUri, "Photo");
+                    } finally {
+                        // Delete whether or not it uploaded, and whether or not
+                        // the user went through with the shot: a cancelled
+                        // capture leaves a file too. uploadImage has already read
+                        // the bytes into memory by the time this runs.
+                        discardPendingCapture();
+                    }
                 });
         findViewById(R.id.fab_add).setOnClickListener(v -> showAddMenu());
     }
@@ -136,15 +150,23 @@ public class BasketActivity extends AppCompatActivity {
 
     private void launchCamera() {
         try {
-            File dir = new File(getCacheDir(), "captures");
-            //noinspection ResultOfMethodCallIgnored
-            dir.mkdirs();
-            File f = new File(dir, "cap_" + System.currentTimeMillis() + ".jpg");
+            File f = new File(CaptureFiles.dir(this), "cap_" + System.currentTimeMillis() + ".jpg");
+            pendingPhotoFile = f;
             pendingPhotoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
             takePhoto.launch(pendingPhotoUri);
         } catch (Exception e) {
             toast("Couldn't start the camera: " + e.getMessage());
         }
+    }
+
+    /** Remove the scratch JPEG the camera wrote, once we are done with it. */
+    private void discardPendingCapture() {
+        if (pendingPhotoFile != null) {
+            //noinspection ResultOfMethodCallIgnored
+            pendingPhotoFile.delete();
+            pendingPhotoFile = null;
+        }
+        pendingPhotoUri = null;
     }
 
     private void uploadImage(Uri uri, String name) {
