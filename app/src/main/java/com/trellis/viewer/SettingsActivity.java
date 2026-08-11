@@ -7,6 +7,7 @@ import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 
@@ -19,6 +20,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.net.TrellisApi;
+import com.trellis.viewer.util.Crypto;
 import com.trellis.viewer.util.LockPrefs;
 import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
@@ -149,6 +151,18 @@ public class SettingsActivity extends AppCompatActivity {
 
         lockSwitch.setOnCheckedChangeListener((b, checked) -> {
             LockPrefs.setEnabled(this, checked);
+            // Turning the lock on or off changes whether the at-rest key can be
+            // bound to an unlock, so the key is replaced and everything under it
+            // re-written. Turning the lock ON is the case that matters: without
+            // this, the notes would keep being protected by the weaker unbound
+            // key while the UI claimed they were locked.
+            if (!Crypto.bindingMatchesSettings(this)) {
+                if (!ServerPrefs.rekey(this)) {
+                    Toast.makeText(this,
+                            "Couldn't re-encrypt your servers — unlock the phone and try again.",
+                            Toast.LENGTH_LONG).show();
+                }
+            }
             refresh.run();
             // FLAG_SECURE is set per window when an activity is created, so the
             // screen you are looking at has to be recreated to pick it up.

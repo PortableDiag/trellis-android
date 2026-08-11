@@ -53,12 +53,37 @@ held in memory and never written down.
 The toggle is disabled if the phone has no screen lock of its own, because there
 would be no credential to check and the prompt would always open.
 
-**What this does and doesn't protect.** It guards the screen, not the bytes. The
-offline cache is plain JSON in the app's private storage and the API key is a
-plain string in its preferences — unreachable on a locked, non-rooted phone (the
-app also sets `allowBackup="false"`), but readable from a rooted or ADB-enabled
-device whatever the UI does. Encrypting both behind an Android Keystore key is a
-separate, planned piece of work.
+## Encrypted at rest
+
+**Since v0.22.0, the two things worth protecting on the phone are encrypted on
+disk**: the **API key** — which is live access to your whole document over the
+LAN — and the **offline cache**, which is every basket and card body you have
+opened. Both used to sit in app-private storage as plaintext: safe on a locked,
+non-rooted phone, and readable from a rooted or ADB-enabled one no matter what
+the UI did.
+
+Both are now AES-256/GCM under a key held in the **Android Keystore**, where the
+key material cannot be extracted from the device at all. There is nothing to
+turn on and nothing to configure. Your existing setup migrates itself on first
+run: the API key is re-written encrypted and the plaintext removed, and the cache
+is dropped and re-fetched (it is a cache — that costs one round-trip).
+
+**With the app lock on, the key is bound to unlocking the phone.** It is usable
+only in a window after an unlock, so notes pulled off a locked device are
+ciphertext, not just a screen you cannot see. The binding accepts your PIN,
+pattern or password as well as a fingerprint — deliberately, because a key tied
+to a *specific* fingerprint is destroyed the moment you enrol another one, which
+would mean losing your cache for adding a finger.
+
+With the app lock off, the data is still encrypted, just not tied to an unlock.
+
+**If you remove your phone's screen lock entirely, the key is destroyed** — by
+Android, by design, and there is no recovery. The app notices, clears what it can
+no longer read, and asks for the API key again.
+
+**This does not encrypt the network.** The desktop API is plain HTTP, so with LAN
+access enabled the key still crosses your network in the clear on every request.
+That is a separate problem; only enable LAN access on a network you trust.
 
 ## Releasing
 

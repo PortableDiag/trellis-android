@@ -9,6 +9,7 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.trellis.viewer.net.ServerPrefs;
 import com.trellis.viewer.util.LockPrefs;
 import com.trellis.viewer.util.ThemePrefs;
 
@@ -45,6 +46,10 @@ public class TrellisApp extends Application {
             boolean gate = LockPrefs.claimGate(a);
             if (cameToForeground && !gate) LockPrefs.onForeground();
             if (gate) {
+                // Drop the decrypted API keys held in memory. Binding the key to
+                // an unlock buys nothing if the plaintext it protects survives
+                // the re-lock in this process.
+                ServerPrefs.forget();
                 Intent i = new Intent(a, LockActivity.class);
                 // No animation and no history: the gate should feel like part of
                 // opening the app, and it has no business in the back stack.
