@@ -2,6 +2,7 @@ package com.trellis.viewer;
 
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.method.LinkMovementMethod;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,6 +12,7 @@ import com.trellis.viewer.util.SystemBars;
 import com.trellis.viewer.util.ThemePrefs;
 
 import com.trellis.viewer.util.Md;
+import com.trellis.viewer.util.WikiLinks;
 
 /**
  * Full-screen, scrollable reader for a text, code, checklist, or table card's
@@ -59,7 +61,13 @@ public class CardReaderActivity extends AppCompatActivity {
             bodyView.setHorizontallyScrolling(false);
             int pad = Math.round(32 * getResources().getDisplayMetrics().density);
             bodyView.setMaxWidth(getResources().getDisplayMetrics().widthPixels - pad);
-            Md.create(this).setMarkdown(bodyView, body);
+            // The API hands back the raw body, so [[…]] arrives as literal text;
+            // the desktop does this rewrite in its own renderer.
+            Md.create(this).setMarkdown(bodyView, WikiLinks.toMarkdown(body));
+            // Markwon styles a link whether or not anything can be tapped, so
+            // without a movement method the links look right and do nothing —
+            // which is indistinguishable from the bug being fixed here.
+            bodyView.setMovementMethod(LinkMovementMethod.getInstance());
         }
     }
 }

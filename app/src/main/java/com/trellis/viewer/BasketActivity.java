@@ -43,6 +43,9 @@ public class BasketActivity extends AppCompatActivity {
 
     public static final String EXTRA_NODE_ID = "node_id";
     public static final String EXTRA_NODE_TITLE = "node_title";
+    /** Optional: a card to centre on and flash once the basket loads. Set when
+     *  arriving from a {@code [[#id]]} link, where the basket is not the answer. */
+    public static final String EXTRA_FOCUS_CARD = "focus_card";
 
     private static final long POLL_MS = 3000;
 
@@ -99,6 +102,11 @@ public class BasketActivity extends AppCompatActivity {
         basket.setImageLoader(this::loadImage);
         basket.setOnImageTap(this::openImageViewer);
         basket.setOnCardTap(this::openCardReader);
+        // Requested once, here, rather than after each load: this basket polls
+        // every few seconds, and re-centring on every poll would drag the view
+        // back out from under anyone who had panned away.
+        final long focus = getIntent().getLongExtra(EXTRA_FOCUS_CARD, 0L);
+        if (focus > 0) basket.focusCard(focus);
 
         pickImage = registerForActivityResult(
                 new ActivityResultContracts.PickVisualMedia(), uri -> {

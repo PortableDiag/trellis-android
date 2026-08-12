@@ -144,6 +144,14 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   monospaced for code, and aligned columns with horizontal scroll for tables).
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
+- **`[[wiki-links]]` are links** — tap one in the reader to follow it. `[[#1391]]`
+  goes to that **card**: the basket opens centred on it with a brief outline,
+  because in a journal every card written on a day shares a basket, so opening
+  the right basket is not the same as arriving. `[[Roadmap]]`, `[[62]]` and
+  `[[#1391|display text]]` all work, resolved exactly as the desktop resolves
+  them (card id, then node id, then case-insensitive title). A link that resolves
+  to nothing says so instead of doing nothing. Needs Trellis ≥ 0.87.0 for
+  `GET /api/cards/{cid}`.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
   or a **picked image** as a card in that node. (Read + capture; other edits are
   still done on the desktop.)

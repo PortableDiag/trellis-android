@@ -1,9 +1,14 @@
 package com.trellis.viewer.util;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.TypedValue;
 
+import io.noties.markwon.AbstractMarkwonPlugin;
+import io.noties.markwon.LinkResolver;
+import io.noties.markwon.LinkResolverDef;
 import io.noties.markwon.Markwon;
+import io.noties.markwon.MarkwonConfiguration;
 import io.noties.markwon.ext.tables.TablePlugin;
 
 /**
@@ -39,12 +44,32 @@ public final class Md {
         final int padding = Math.round(CELL_PADDING_DP * density);
         final int border = Math.max(1, Math.round(BORDER_DP * density));
         final int borderColor = outlineColor(context);
-        return Markwon.builder(context)
+        final Markwon.Builder b = Markwon.builder(context)
                 .usePlugin(TablePlugin.create(builder -> builder
                         .tableCellPadding(padding)
                         .tableBorderWidth(border)
-                        .tableBorderColor(borderColor)))
-                .build();
+                        .tableBorderColor(borderColor)));
+        // A wiki-link is only clickable if something intercepts it before the
+        // default resolver hands the URL to the browser. The desktop shipped
+        // exactly this bug for two versions — its interception ran at the wrong
+        // point in the frame — so the equivalent mistake here is letting
+        // Markwon's LinkResolverDef see a `trellis:` URL at all.
+        if (context instanceof Activity) {
+            final Activity activity = (Activity) context;
+            b.usePlugin(new AbstractMarkwonPlugin() {
+                @Override public void configureConfiguration(MarkwonConfiguration.Builder builder) {
+                    final LinkResolver fallback = new LinkResolverDef();
+                    builder.linkResolver((view, link) -> {
+                        if (WikiLinks.isWikiLink(link)) {
+                            WikiLinks.follow(activity, link);
+                        } else {
+                            fallback.resolve(view, link);
+                        }
+                    });
+                }
+            });
+        }
+        return b.build();
     }
 
     /**

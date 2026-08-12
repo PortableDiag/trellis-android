@@ -108,6 +108,26 @@ public class TrellisApi {
         return new JSONObject(getCached("/nodes/" + id));
     }
 
+    /** GET /cards/{cid} — find a card from its id alone
+     *  ({@code {node, node_title, node_path, card}}). Card ids are document-global,
+     *  so this is what lets a {@code [[#id]]} link resolve without walking every
+     *  node. Cached, so a link still follows with the desktop unreachable.
+     *  Returns null when no card has that id (the server answers 404). */
+    public JSONObject card(long cardId) throws IOException, JSONException {
+        try {
+            return new JSONObject(getCached("/cards/" + cardId));
+        } catch (IOException e) {
+            // This client reports every HTTP failure as an IOException carrying
+            // the status in its message, so "no such card" has to be told apart
+            // from "the server is unreachable" here. Only the first is a null;
+            // anything else must keep propagating, or a link that failed because
+            // the network died would claim the card does not exist.
+            final String m = e.getMessage();
+            if (m != null && m.startsWith("HTTP 404")) return null;
+            throw e;
+        }
+    }
+
     /** GET /instance — which document this server is serving
      *  ({@code {app,version,document,path,port,lan,nodes,unsaved_changes}}). One
      *  instance serves one document, so this is how a server identifies itself;

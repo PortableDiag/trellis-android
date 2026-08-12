@@ -55,6 +55,11 @@ public class BasketView extends View {
     private final Paint accent = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Outline drawn around a card arrived at by following a link. */
+    private final Paint highlight = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** How long that outline takes to fade, in ms. */
+    private static final long HIGHLIGHT_MS = 1600L;
+    private long focusPending = 0L, highlightCard = 0L, highlightUntil = 0L;
     private final TextPaint titlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint bodyPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
@@ -112,9 +117,20 @@ public class BasketView extends View {
         strokePaint.setStyle(Paint.Style.STROKE);
         strokePaint.setStrokeCap(Paint.Cap.ROUND);
         strokePaint.setStrokeJoin(Paint.Join.ROUND);
+        highlight.setStyle(Paint.Style.STROKE);
+        highlight.setStrokeWidth(3f);
+        highlight.setColor(MaterialColors.getColor(
+                ctx, com.google.android.material.R.attr.colorPrimary, Color.CYAN));
         titlePaint.setColor(cOnSurface);
         titlePaint.setFakeBoldText(true);
         bodyPaint.setColor(cOnSurfaceVariant);
+        // Markwon paints a link with the TextPaint's linkColor, which on a bare
+        // TextPaint is 0 — fully transparent. A TextView supplies one from the
+        // theme; a StaticLayout drawn straight onto a Canvas does not, so
+        // without this every wiki-link on the canvas renders invisible and a
+        // card reads "Card link:" followed by nothing at all.
+        bodyPaint.linkColor = MaterialColors.getColor(
+                ctx, com.google.android.material.R.attr.colorPrimary, Color.CYAN);
 
         scaleDetector = new ScaleGestureDetector(ctx, new ScaleListener());
         gestureDetector = new GestureDetector(ctx, new PanListener());
@@ -186,11 +202,74 @@ public class BasketView extends View {
             fitToContent();
             fitPending = false;
         }
+        // A pending focus needs the view measured (centring is relative to the
+        // viewport), so it resolves here rather than when it was requested.
+        // Cards arrive asynchronously, so a focus requested before the load must
+        // survive until there is something to search — clearing it on an empty
+        // list would drop every link followed faster than the network.
+        if (focusPending != 0L && getWidth() > 0 && !cards.isEmpty()) {
+            if (centerOn(focusPending)) {
+                fitPending = false;
+                highlightCard = focusPending;
+                highlightUntil = android.os.SystemClock.uptimeMillis() + HIGHLIGHT_MS;
+            }
+            focusPending = 0L;
+        }
         canvas.save();
         canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
         for (Card c : cards) drawCard(canvas, c);
+        drawHighlight(canvas);
         canvas.restore();
+    }
+
+    /**
+     * Centre the viewport on one card, at a readable zoom.
+     *
+     * <p>Arriving in the right basket is not the same as arriving at the card:
+     * in a journal-shaped document a basket is a day holding twenty other cards.
+     * The desktop recentres and flashes for the same reason.
+     *
+     * @return false if no card here has that id — the caller keeps fit-to-content
+     *         rather than leaving the view pointed at nothing.
+     */
+    private boolean centerOn(long cardId) {
+        for (Card c : cards) {
+            if (c.id != cardId) continue;
+            scale = clamp(1f, 0.2f, 2f);
+            offsetX = getWidth() / 2f - (c.x + c.w / 2f) * scale;
+            offsetY = getHeight() / 2f - (c.y + c.h / 2f) * scale;
+            return true;
+        }
+        return false;
+    }
+
+    /** The fading outline that says "this is the one you followed". */
+    private void drawHighlight(Canvas canvas) {
+        if (highlightCard == 0L) return;
+        final long left = highlightUntil - android.os.SystemClock.uptimeMillis();
+        if (left <= 0) {
+            highlightCard = 0L;
+            return;
+        }
+        for (Card c : cards) {
+            if (c.id != highlightCard) continue;
+            highlight.setAlpha((int) (255L * left / HIGHLIGHT_MS));
+            final RectF r = new RectF(c.x - 4, c.y - 4, c.x + c.w + 4, c.y + c.h + 4);
+            canvas.drawRoundRect(r, 10, 10, highlight);
+            break;
+        }
+        // Keep fading rather than waiting for the next unrelated invalidate.
+        postInvalidateOnAnimation();
+    }
+
+    /**
+     * Reveal a card once the basket's cards have loaded. Safe to call before
+     * {@link #setCards}: the request is held until there is something to find.
+     */
+    public void focusCard(long cardId) {
+        focusPending = cardId;
+        invalidate();
     }
 
     private void drawCard(Canvas canvas, Card c) {
@@ -352,7 +431,12 @@ public class BasketView extends View {
             // The canvas draws into a StaticLayout, not a TextView, so it uses
             // the plain builder and flattens tables first — see Md.createPlain.
             if (markwon == null) markwon = com.trellis.viewer.util.Md.createPlain(getContext());
-            rendered = markwon.toMarkdown(com.trellis.viewer.util.Md.flattenTables(c.body));
+            // Rewrite [[…]] here too. Nothing on the canvas is tappable — a tap
+            // opens the card — but an unrewritten link shows its brackets and
+            // its target id, which is noise at thumbnail size and doesn't match
+            // what the desktop draws.
+            rendered = markwon.toMarkdown(com.trellis.viewer.util.WikiLinks.toMarkdown(
+                    com.trellis.viewer.util.Md.flattenTables(c.body)));
         }
         mdCache.put(c.id, rendered);
         return rendered;
