@@ -139,6 +139,11 @@ public class BasketView extends View {
     public void setCards(List<Card> newCards) {
         cards.clear();
         cards.addAll(newCards);
+        // Draw far-to-near, so a card the desktop shows in front is in front
+        // here too. The viewer is flat, which is exactly the desktop's Depth-off
+        // reading of z: a stacking order. A stable sort keeps document order for
+        // the cards that share a depth — i.e. every card in a flat document.
+        java.util.Collections.sort(cards, (a, b) -> Float.compare(a.z, b.z));
         mdCache.clear(); // bodies may have changed on a live update
         invalidate();
     }

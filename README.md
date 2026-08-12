@@ -144,6 +144,18 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   monospaced for code, and aligned columns with horizontal scroll for tables).
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
+- **`trellis://` links open the app.** `trellis://7374/card/1391` — from a chat,
+  a note, anywhere — opens that card here. The **port picks the workstation**,
+  because one Trellis instance serves one document, so a link goes to the right
+  document rather than to whichever server happens to be selected. A port no
+  saved workstation uses says so instead of guessing: card ids repeat across
+  documents, so guessing would land on a real card that is not the one meant.
+  `hypercube://` is accepted too. Ask the desktop for a link with
+  `GET /api/cards/{cid}/link` rather than assembling one.
+- **Card depth is respected.** Desktop v0.92.0 gave cards a `z`; the viewer is
+  flat, which is exactly what the desktop calls Depth-off — so `z` is read as the
+  stacking order and cards draw (and are tapped) in the same order as on the
+  desktop instead of in document order.
 - **`[[wiki-links]]` are links** — tap one in the reader to follow it. `[[#1391]]`
   goes to that **card**: the basket opens centred on it with a brief outline,
   because in a journal every card written on a day shares a basket, so opening

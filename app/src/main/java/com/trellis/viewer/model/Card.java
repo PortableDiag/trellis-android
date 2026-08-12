@@ -10,6 +10,10 @@ import java.util.List;
 public class Card {
     public long id;
     public float x, y, w, h;
+    /** Depth (desktop v0.92.0). The viewer is flat, so this is what the desktop
+     *  calls Depth-off: the stacking order. Reading it keeps the phone's z-order
+     *  the same as the desktop's instead of falling back to document order. */
+    public float z;
     public String title = "";
     public String kind = "text";
     public int[] color;          // [r,g,b] accent, or null
@@ -65,6 +69,9 @@ public class Card {
         JSONArray pos = o.optJSONArray("pos");
         JSONArray size = o.optJSONArray("size");
         if (pos != null) { c.x = (float) pos.optDouble(0); c.y = (float) pos.optDouble(1); }
+        // Absent on every card written before depth existed, and omitted by the
+        // API when it is zero — so default, never require.
+        c.z = (float) o.optDouble("z", 0);
         if (size != null) { c.w = (float) size.optDouble(0, 240); c.h = (float) size.optDouble(1, 160); }
         if (c.w < 40) c.w = 240;
         if (c.h < 40) c.h = 160;

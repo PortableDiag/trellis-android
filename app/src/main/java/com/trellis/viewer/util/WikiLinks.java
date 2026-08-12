@@ -186,6 +186,55 @@ public final class WikiLinks {
         });
     }
 
+    /**
+     * Follow a {@code trellis://<port>/card/<id>} link that arrived as an Intent.
+     *
+     * <p>The port is the address — one Trellis instance serves one document — so
+     * the port in the link picks which configured server to ask. If none of the
+     * saved workstations uses that port we say so rather than guessing: asking a
+     * different document for that id would resolve, because **card ids repeat
+     * across documents**, and land on a real card that is not the one meant.
+     *
+     * @return false if the link was not one of ours, so the caller can carry on.
+     */
+    public static boolean followDeepLink(Activity activity, android.net.Uri uri) {
+        if (uri == null) return false;
+        final String scheme = uri.getScheme();
+        if (!"trellis".equals(scheme) && !"hypercube".equals(scheme)) return false;
+        // trellis://7374/card/1391 → authority "7374", path "/card/1391"
+        final int port;
+        try {
+            port = Integer.parseInt(uri.getAuthority() == null ? "" : uri.getAuthority());
+        } catch (NumberFormatException e) {
+            Toast.makeText(activity, "That link has no port: " + uri, Toast.LENGTH_LONG).show();
+            return true;
+        }
+        final java.util.List<String> parts = uri.getPathSegments();
+        if (parts.size() != 2) {
+            Toast.makeText(activity, "Link should be …/card/<id> or …/node/<id>", Toast.LENGTH_LONG).show();
+            return true;
+        }
+        final String kind = parts.get(0);
+        final String id = parts.get(1);
+
+        final java.util.List<ServerPrefs.Server> servers = ServerPrefs.servers(activity);
+        int match = -1;
+        for (int i = 0; i < servers.size(); i++) {
+            if (servers.get(i).port == port) { match = i; break; }
+        }
+        if (match < 0) {
+            Toast.makeText(activity,
+                    "No workstation here uses port " + port + " — add it in Settings",
+                    Toast.LENGTH_LONG).show();
+            return true;
+        }
+        // Point the app at that document first; everything below reads the
+        // active server.
+        ServerPrefs.setActive(activity, match);
+        follow(activity, SCHEME + encode(("node".equals(kind) ? "" : "#") + id));
+        return true;
+    }
+
     /** Where a link points, once resolved. {@code card} is 0 for a basket link. */
     private static final class Dest {
         final long node;

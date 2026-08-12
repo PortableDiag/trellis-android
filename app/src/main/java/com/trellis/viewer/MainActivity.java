@@ -58,6 +58,29 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "trellis_settings";
     private static final String K_EXPANDED = "expanded_nodes";
 
+    /**
+     * Follow a {@code trellis://} link, whichever way it arrived.
+     *
+     * <p>The link names a **port**, and the port is the document — so it selects
+     * which saved workstation to ask. Being wrong here is not a harmless
+     * mis-navigation: card ids repeat across documents, so asking the wrong
+     * instance resolves to a real card that is not the one meant.
+     */
+    private void handleDeepLink(android.content.Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+        if (com.trellis.viewer.util.WikiLinks.followDeepLink(this, intent.getData())) {
+            // Consume it: a rotation or a return from the basket must not follow
+            // the same link again.
+            intent.setData(null);
+        }
+    }
+
+    @Override protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleDeepLink(intent);
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(com.trellis.viewer.util.ThemePrefs.themeRes(this));
         appliedAccent = com.trellis.viewer.util.ThemePrefs.accent(this);
@@ -69,6 +92,10 @@ public class MainActivity extends AppCompatActivity {
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // A trellis:// link that launched us. Handled after the tree is wired up
+        // so the basket it opens has something to come back to.
+        handleDeepLink(getIntent());
 
         status = findViewById(R.id.status);
         list = findViewById(R.id.list);

@@ -22,6 +22,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- trellis://<port>/card/<id> — the same links the desktop mints.
+                 hypercube:// is accepted too: the scheme name is not settled,
+                 and a link pasted into a note outlives a rename. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="trellis"/>
+                <data android:scheme="hypercube"/>
+            </intent-filter>
         </activity>
 
         <!-- The unlock gate. excludeFromRecents so it never becomes the task's
