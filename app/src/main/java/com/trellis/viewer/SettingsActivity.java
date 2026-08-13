@@ -120,6 +120,11 @@ public class SettingsActivity extends AppCompatActivity {
      * would always open.
      */
     private void bindLock() {
+        MaterialSwitch timeSwitch = findViewById(R.id.time_switch);
+        timeSwitch.setChecked(com.trellis.viewer.util.Hypercube.timeMode(this));
+        timeSwitch.setOnCheckedChangeListener((v, on) ->
+                com.trellis.viewer.util.Hypercube.setTimeMode(this, on));
+
         MaterialSwitch lockSwitch = findViewById(R.id.lock_switch);
         TextView note = findViewById(R.id.lock_note);
         RadioGroup graceGroup = findViewById(R.id.lock_grace_group);

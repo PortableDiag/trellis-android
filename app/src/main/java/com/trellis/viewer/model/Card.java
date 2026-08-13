@@ -59,6 +59,11 @@ public class Card {
         return out;
     }
 
+    /** One card object, as `GET /api/cards/{cid}` returns inside its wrapper. */
+    public static Card parseCard(JSONObject o) {
+        return o == null ? null : fromJson(o);
+    }
+
     private static Card fromJson(JSONObject o) {
         Card c = new Card();
         c.id = o.optLong("id");

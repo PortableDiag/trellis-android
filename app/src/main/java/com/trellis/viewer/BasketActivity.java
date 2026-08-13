@@ -56,6 +56,8 @@ public class BasketActivity extends AppCompatActivity {
     private BasketView basket;
     private TextView status;
     private long nodeId;
+    /** This basket's title, kept because the Time axis asks whether it is a day. */
+    private String thisNodeTitle;
     private boolean polling;
     private volatile boolean loading;
     /** Accent this activity was themed with, to detect a Settings change. */
@@ -88,6 +90,7 @@ public class BasketActivity extends AppCompatActivity {
 
         nodeId = getIntent().getLongExtra(EXTRA_NODE_ID, -1);
         String title = getIntent().getStringExtra(EXTRA_NODE_TITLE);
+        thisNodeTitle = title;
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -102,6 +105,15 @@ public class BasketActivity extends AppCompatActivity {
         basket.setImageLoader(this::loadImage);
         basket.setOnImageTap(this::openImageViewer);
         basket.setOnCardTap(this::openCardReader);
+        // A projection is a view of a card that lives elsewhere; tapping it goes
+        // there rather than opening a second copy of it here.
+        basket.setOnProjectedTap(pr -> {
+            Intent i = new Intent(this, BasketActivity.class);
+            i.putExtra(EXTRA_NODE_ID, pr.homeNode);
+            i.putExtra(EXTRA_NODE_TITLE, pr.homeTitle);
+            i.putExtra(EXTRA_FOCUS_CARD, pr.card.id);
+            startActivity(i);
+        });
         // Requested once, here, rather than after each load: this basket polls
         // every few seconds, and re-centring on every poll would drag the view
         // back out from under anyone who had panned away.
@@ -330,13 +342,16 @@ public class BasketActivity extends AppCompatActivity {
         final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this), this);
         io.execute(() -> {
             List<Card> cards = null;
+            java.util.List<BasketView.Projected> projected = new java.util.ArrayList<>();
             String error = null;
             try {
                 cards = Card.parseCards(api.node(nodeId));
+                projected = loadProjections(api);
             } catch (Exception e) {
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
             final List<Card> result = cards;
+            final java.util.List<BasketView.Projected> proj = projected;
             final String err = error;
             final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
@@ -351,9 +366,56 @@ public class BasketActivity extends AppCompatActivity {
                     basket.setVisibility(View.VISIBLE);
                     basket.clearPendingImageRequests(); // retry any images that hadn't loaded
                     basket.setCards(result);
+                    basket.setProjected(proj);
                 }
             });
         });
+    }
+
+    /**
+     * Cards that live in <em>other days</em> and span this one — the Time axis.
+     *
+     * <p>Two limits, both learned on the desktop by running it against a real
+     * document rather than reasoning about it. <b>Containment</b>, not the
+     * agenda's rule that a missed deadline stays live for ever: that rule is
+     * right for a list of work and it filled a day with every overdue task in
+     * the document. And <b>only cards that live in other days</b>, because a
+     * card's position means something inside its own basket and nothing outside
+     * it — projecting from a project basket produced a pile at coordinates that
+     * meant nothing there. Work living elsewhere is the Agenda's job.
+     */
+    private java.util.List<BasketView.Projected> loadProjections(TrellisApi api) {
+        final java.util.List<BasketView.Projected> out = new java.util.ArrayList<>();
+        if (!com.trellis.viewer.util.Hypercube.timeMode(this)) return out;
+        final long day = com.trellis.viewer.util.Hypercube.dayOf(thisNodeTitle);
+        if (day == Long.MIN_VALUE) return out; // not a journal day; nothing to project
+        try {
+            final org.json.JSONArray tasks = api.tasks().optJSONArray("tasks");
+            if (tasks == null) return out;
+            final java.util.Set<Long> seen = new java.util.HashSet<>();
+            for (int i = 0; i < tasks.length(); i++) {
+                final org.json.JSONObject t = tasks.optJSONObject(i);
+                if (t == null || t.optBoolean("done")) continue;
+                final long home = t.optLong("node");
+                if (home == nodeId) continue;
+                if (com.trellis.viewer.util.Hypercube.dayOf(t.optString("node_title")) == Long.MIN_VALUE) {
+                    continue;
+                }
+                if (!com.trellis.viewer.util.Hypercube.spans(day, t.optString("start", null), t.optString("due"))) {
+                    continue;
+                }
+                final long cid = t.optLong("card");
+                if (!seen.add(cid)) continue; // a checklist yields one task per line
+                final org.json.JSONObject wrap = api.card(cid);
+                if (wrap == null) continue;
+                final Card c = Card.parseCard(wrap.optJSONObject("card"));
+                if (c != null) out.add(new BasketView.Projected(c, home, t.optString("node_title")));
+            }
+        } catch (Exception ignored) {
+            // A projection is an extra; failing to fetch one must never stop the
+            // basket itself from drawing.
+        }
+        return out;
     }
 
     /** Show/hide an "offline — cached copy" note under the basket title. */

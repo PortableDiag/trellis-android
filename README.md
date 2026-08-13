@@ -157,6 +157,15 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   documents, so guessing would land on a real card that is not the one meant.
   `hypercube://` is accepted too. Ask the desktop for a link with
   `GET /api/cards/{cid}/link` rather than assembling one.
+- **The hypercube, as far as a viewer can carry it.** Trellis is a tree of
+  baskets; a **basket** is the space — `x` and `y` always, `z` with Depth on and a
+  time axis with Time on, at which point that basket is a *hypercube*. (The tree
+  is not a dimension: it is the index over baskets.) **Time** is a real toggle
+  here, in **Settings → Hypercube**, off by default: a journal day then also shows
+  cards from *other days* whose `start::`→`due::` span covers it — the same card,
+  drawn as a projection that names where it lives and takes you there when
+  tapped. Same two limits as the desktop, both learned by running it: containment
+  rather than the agenda's overdue rule, and only cards that live in other days.
 - **Card depth is respected.** Desktop v0.92.0 gave cards a `z`; the viewer is
   flat, which is exactly what the desktop calls Depth-off — so `z` is read as the
   stacking order and cards draw (and are tapped) in the same order as on the

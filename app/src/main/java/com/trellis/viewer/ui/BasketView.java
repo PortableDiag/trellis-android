@@ -136,6 +136,34 @@ public class BasketView extends View {
         gestureDetector = new GestureDetector(ctx, new PanListener());
     }
 
+    /** A card that lives in another day but spans this one — see Hypercube. */
+    public static final class Projected {
+        public final Card card;
+        public final long homeNode;
+        public final String homeTitle;
+        public Projected(Card card, long homeNode, String homeTitle) {
+            this.card = card;
+            this.homeNode = homeNode;
+            this.homeTitle = homeTitle;
+        }
+    }
+
+    private final List<Projected> projected = new ArrayList<>();
+
+    /**
+     * Cards projected into this day by the Time axis.
+     *
+     * <p>Drawn, not built as tappable cards in their own right: a projection is a
+     * <em>view</em> of a card that lives elsewhere, and offering an edit here
+     * would be a second place the same task could change — the thing the design
+     * exists to prevent. Tapping one goes to where it lives.
+     */
+    public void setProjected(List<Projected> list) {
+        projected.clear();
+        if (list != null) projected.addAll(list);
+        invalidate();
+    }
+
     public void setCards(List<Card> newCards) {
         cards.clear();
         cards.addAll(newCards);
@@ -154,6 +182,28 @@ public class BasketView extends View {
 
     public void setOnImageTap(OnImageTap listener) {
         this.imageTapListener = listener;
+    }
+
+    /** Notified when a projected card is tapped (to open the basket it lives in). */
+    public interface OnProjectedTap {
+        void tapped(Projected p);
+    }
+    private OnProjectedTap projectedTapListener;
+    public void setOnProjectedTap(OnProjectedTap l) {
+        this.projectedTapListener = l;
+    }
+
+    /** A projection under a screen point, or null. Checked only after real cards. */
+    private Projected projectedAt(float screenX, float screenY) {
+        float wx = (screenX - offsetX) / scale;
+        float wy = (screenY - offsetY) / scale;
+        for (int i = projected.size() - 1; i >= 0; i--) {
+            Card c = projected.get(i).card;
+            if (wx >= c.x && wx <= c.x + c.w && wy >= c.y && wy <= c.y + c.h) {
+                return projected.get(i);
+            }
+        }
+        return null;
     }
 
     /** Topmost card under a screen point, or null. Later-drawn cards win (on top). */
@@ -223,6 +273,9 @@ public class BasketView extends View {
         canvas.save();
         canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
+        // Projections behind the day's own cards: work merely passing through a
+        // day must never sit in front of what the day is actually about.
+        for (Projected pr : projected) drawProjected(canvas, pr);
         for (Card c : cards) drawCard(canvas, c);
         drawHighlight(canvas);
         canvas.restore();
@@ -495,6 +548,37 @@ public class BasketView extends View {
         bodyPaint.setFakeBoldText(false);
     }
 
+    /** A card from another day, drawn as unmistakably a view of one. */
+    private void drawProjected(Canvas canvas, Projected pr) {
+        final Card c = pr.card;
+        final RectF r = new RectF(c.x, c.y, c.x + c.w, c.y + c.h);
+        final int acc = c.color != null
+                ? Color.rgb(c.color[0], c.color[1], c.color[2]) : cSurfaceVariant;
+        fill.setColor(cSurface);
+        fill.setAlpha(140);
+        canvas.drawRoundRect(r, 8, 8, fill);
+        fill.setAlpha(255);
+        // Double outline: it must not be mistakable for a card that lives here.
+        stroke.setColor(acc);
+        canvas.drawRoundRect(r, 8, 8, stroke);
+        stroke.setColor((acc & 0x00FFFFFF) | 0x55000000);
+        canvas.drawRoundRect(new RectF(r.left + 3, r.top + 3, r.right - 3, r.bottom - 3), 6, 6, stroke);
+        stroke.setColor(cOutline);
+
+        final float titleH = 26f;
+        fill.setColor((acc & 0x00FFFFFF) | 0x47000000);
+        canvas.drawRect(c.x, c.y, c.x + c.w, c.y + titleH, fill);
+        titlePaint.setTextSize(12f);
+        canvas.drawText(ellipsize(c.title, c.w - 8, titlePaint), c.x + 4, c.y + 17, titlePaint);
+        // Say where it actually lives, or a projection is a mystery card.
+        bodyPaint.setColor(cOnSurfaceVariant);
+        bodyPaint.setTextSize(9f);
+        canvas.drawText(
+                ellipsize("\u2197 lives in " + pr.homeTitle, c.w - 8, bodyPaint),
+                c.x + 4, c.y + c.h - 5, bodyPaint);
+        bodyPaint.setTextSize(11f);
+    }
+
     private void drawSketch(Canvas canvas, Card c) {
         for (Card.Stroke s : c.strokes) {
             if (s.points.isEmpty()) continue;
@@ -634,7 +718,16 @@ public class BasketView extends View {
 
         @Override public boolean onSingleTapConfirmed(@NonNull MotionEvent e) {
             Card c = cardAt(e.getX(), e.getY());
-            if (c == null) return false;
+            if (c == null) {
+                // Only then: a projection sits behind the day's own cards, so it
+                // must never take a tap meant for one of them.
+                Projected pr = projectedAt(e.getX(), e.getY());
+                if (pr != null && projectedTapListener != null) {
+                    projectedTapListener.tapped(pr);
+                    return true;
+                }
+                return false;
+            }
             if ("image".equals(c.kind) && imageTapListener != null) {
                 imageTapListener.tapped(c);
                 return true;
