@@ -235,6 +235,91 @@ public final class WikiLinks {
         return true;
     }
 
+
+    /** One run of a card's text: display text, plus a target if it is a link. */
+    public static final class Seg {
+        public final String text;
+        public final String target;   // null = ordinary text
+        Seg(String text, String target) { this.text = text; this.target = target; }
+    }
+
+    /**
+     * Split text into runs of plain text and {@code [[wiki-links]]} — the mirror
+     * of the desktop's {@code model::wikilink_segments}.
+     *
+     * <p>Needed wherever text is painted without a Markdown engine: a table cell
+     * on the canvas, and the reader's monospaced table, which are laid out
+     * character by character precisely so their columns line up.
+     */
+    public static java.util.List<Seg> segments(String text) {
+        final java.util.List<Seg> out = new java.util.ArrayList<>();
+        if (text == null) return out;
+        final StringBuilder plain = new StringBuilder();
+        int i = 0;
+        while (i < text.length()) {
+            if (i + 1 < text.length() && text.charAt(i) == '[' && text.charAt(i + 1) == '[') {
+                final int end = text.indexOf("]]", i + 2);
+                if (end >= 0) {
+                    final String inner = text.substring(i + 2, end);
+                    final int bar = inner.indexOf('|');
+                    final String target = (bar < 0 ? inner : inner.substring(0, bar)).trim();
+                    String display = bar < 0 ? target : inner.substring(bar + 1).trim();
+                    if (display.isEmpty()) display = target;
+                    if (!target.isEmpty()) {
+                        if (plain.length() > 0) {
+                            out.add(new Seg(plain.toString(), null));
+                            plain.setLength(0);
+                        }
+                        out.add(new Seg(display, target));
+                        i = end + 2;
+                        continue;
+                    }
+                }
+            }
+            plain.append(text.charAt(i));
+            i++;
+        }
+        if (plain.length() > 0) out.add(new Seg(plain.toString(), null));
+        return out;
+    }
+
+    /** What the text *reads* as — links reduced to their display half. */
+    public static String displayText(String text) {
+        if (text == null || text.indexOf("[[") < 0) return text == null ? "" : text;
+        final StringBuilder b = new StringBuilder();
+        for (Seg s : segments(text)) b.append(s.text);
+        return b.toString();
+    }
+
+    /**
+     * Turn raw text into display text with every link tappable.
+     *
+     * <p>Used by the reader for tables, which are laid out as monospace so their
+     * columns align — Markdown is not involved anywhere, so without this a cell
+     * of evidence links reads as its own brackets. The desktop had exactly this
+     * gap until v0.94.0.
+     */
+    public static CharSequence linkify(Activity activity, String text) {
+        final java.util.List<Seg> segs = segments(text);
+        boolean any = false;
+        for (Seg s : segs) if (s.target != null) { any = true; break; }
+        if (!any) return text == null ? "" : text;
+        final android.text.SpannableStringBuilder out = new android.text.SpannableStringBuilder();
+        for (Seg s : segs) {
+            final int start = out.length();
+            out.append(s.text);
+            if (s.target != null) {
+                final String target = s.target;
+                out.setSpan(new android.text.style.ClickableSpan() {
+                    @Override public void onClick(android.view.View v) {
+                        follow(activity, SCHEME + encode(target));
+                    }
+                }, start, out.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        return out;
+    }
+
     /** Where a link points, once resolved. {@code card} is 0 for a basket link. */
     private static final class Dest {
         final long node;

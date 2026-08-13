@@ -55,7 +55,12 @@ public class CardReaderActivity extends AppCompatActivity {
             // them (keeps a wide table's columns aligned instead of reflowing).
             bodyView.setHorizontallyScrolling(true);
             bodyView.setTypeface(Typeface.MONOSPACE);
-            bodyView.setText(body);
+            // A table is laid out as monospace so its columns line up, which
+            // means no Markdown engine ever sees it — so [[links]] in a cell
+            // would print as their own brackets. Substitute the display half and
+            // make each one tappable, keeping the alignment the padding built.
+            bodyView.setText(WikiLinks.linkify(this, body));
+            bodyView.setMovementMethod(LinkMovementMethod.getInstance());
         } else {
             // Prose / checklist: wrap to the screen width and render markdown.
             bodyView.setHorizontallyScrolling(false);

@@ -262,7 +262,10 @@ public class BasketActivity extends AppCompatActivity {
         for (List<Card.Cell> row : card.rows) {
             for (int i = 0; i < row.size(); i++) {
                 String t = row.get(i).text == null ? "" : row.get(i).text;
-                width[i] = Math.max(width[i], t.length());
+                // Measured on what the cell will *read* as, not on the raw
+                // `[[…]]`: the reader substitutes the display half, and a column
+                // padded to the bracket length would then be ragged.
+                width[i] = Math.max(width[i], com.trellis.viewer.util.WikiLinks.displayText(t).length());
             }
         }
         StringBuilder sb = new StringBuilder();
@@ -272,7 +275,8 @@ public class BasketActivity extends AppCompatActivity {
             for (int i = 0; i < cols; i++) {
                 String t = (i < row.size() && row.get(i).text != null) ? row.get(i).text : "";
                 line.append(t);
-                for (int p = t.length(); p < width[i]; p++) line.append(' ');
+                int shown = com.trellis.viewer.util.WikiLinks.displayText(t).length();
+                for (int p = shown; p < width[i]; p++) line.append(' ');
                 if (i < cols - 1) line.append("  ");
             }
             int end = line.length();

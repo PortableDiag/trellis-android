@@ -144,6 +144,11 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   monospaced for code, and aligned columns with horizontal scroll for tables).
 - **Search** (toolbar) — full-text across every node title and card; tap a hit to
   open that node's basket.
+- **Table cells render `[[wiki-links]]` too.** A table is laid out as monospace so
+  its columns line up, which means no Markdown engine sees it — so an evidence
+  column of `[[#10215]]` used to read as its own brackets. Cells now show the link
+  text, tappable in the reader, and the column padding is measured on what the
+  cell *reads* as, so the alignment survives the substitution.
 - **`trellis://` links open the app.** `trellis://7374/card/1391` — from a chat,
   a note, anywhere — opens that card here. The **port picks the workstation**,
   because one Trellis instance serves one document, so a link goes to the right

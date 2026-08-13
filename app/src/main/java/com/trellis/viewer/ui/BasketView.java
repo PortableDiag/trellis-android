@@ -481,7 +481,14 @@ public class BasketView extends View {
                 bodyPaint.setColor(cell.fg != null
                         ? Color.rgb(cell.fg[0], cell.fg[1], cell.fg[2]) : cOnSurfaceVariant);
                 bodyPaint.setFakeBoldText(c.tableHeader && r == 0);
-                canvas.drawText(ellipsize(cell.text, colW - 4, bodyPaint), cxp + 2, ry + 12, bodyPaint);
+                // Show what the cell reads as. Nothing on the canvas is
+                // tappable — a tap opens the card — but printing the brackets at
+                // thumbnail size is noise, and it is not what the desktop draws.
+                String shown = com.trellis.viewer.util.WikiLinks.displayText(cell.text);
+                if (cell.fg == null && shown.length() != (cell.text == null ? 0 : cell.text.length())) {
+                    bodyPaint.setColor(bodyPaint.linkColor);
+                }
+                canvas.drawText(ellipsize(shown, colW - 4, bodyPaint), cxp + 2, ry + 12, bodyPaint);
             }
         }
         bodyPaint.setColor(cOnSurfaceVariant);
