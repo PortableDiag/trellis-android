@@ -49,6 +49,7 @@ public class BasketView extends View {
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
     /** Theme-specific card rendering (Sticky = one solid color; Futuristic = beveled). */
     private final boolean stickyTheme, futuristicTheme, glowTheme;
+    private final boolean blueprintTheme, silkscreenTheme, phosphorTheme;
     private static final int STICKY_YELLOW = Color.rgb(0xff, 0xe9, 0x6b);
     private static final int[] DEFAULT_CARD_COLOR = {0x3b, 0x82, 0xf6};
     private static final float BEVEL = 18f; // Futuristic corner-cut (bigger = more skewed)
@@ -108,9 +109,13 @@ public class BasketView extends View {
         String themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
         stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(themeAccent);
         futuristicTheme = com.trellis.viewer.util.ThemePrefs.FUTURISTIC.equals(themeAccent);
-        // The radiant neon themes get an accent glow behind each card.
+        blueprintTheme = com.trellis.viewer.util.ThemePrefs.BLUEPRINT.equals(themeAccent);
+        silkscreenTheme = com.trellis.viewer.util.ThemePrefs.SILKSCREEN.equals(themeAccent);
+        phosphorTheme = com.trellis.viewer.util.ThemePrefs.PHOSPHOR.equals(themeAccent);
+        // The radiant themes get an accent glow behind each card.
         glowTheme = futuristicTheme
-                || com.trellis.viewer.util.ThemePrefs.SYNTHWAVE.equals(themeAccent);
+                || com.trellis.viewer.util.ThemePrefs.SYNTHWAVE.equals(themeAccent)
+                || phosphorTheme;
 
         glow.setStyle(Paint.Style.STROKE);
         stroke.setStyle(Paint.Style.STROKE);
@@ -460,6 +465,64 @@ public class BasketView extends View {
             accent.setStrokeWidth(2.2f);
             canvas.drawLine(rect.right - BEVEL, rect.top, rect.right, rect.top + BEVEL, accent);
             accent.setStyle(Paint.Style.FILL);
+        } else if (blueprintTheme) {
+            // A drawing sheet: square corners, a thin rule, and a title block —
+            // the double rule under the heading is the convention, so it is
+            // drawn rather than implied by a fill.
+            fill.setColor(cSurface);
+            canvas.drawRect(rect, fill);
+            accent.setColor(acc);
+            accent.setAlpha(40);
+            canvas.drawRect(titleRect, accent);
+            accent.setAlpha(255);
+            accent.setStyle(Paint.Style.STROKE);
+            accent.setStrokeWidth(1f);
+            canvas.drawRect(rect, accent);
+            accent.setStrokeWidth(1.4f);
+            canvas.drawLine(rect.left, c.y + titleH, rect.right, c.y + titleH, accent);
+            accent.setStrokeWidth(0.7f);
+            canvas.drawLine(rect.left, c.y + titleH + 2.5f, rect.right, c.y + titleH + 2.5f, accent);
+            // Registration ticks, the way a sheet is pinned to a board.
+            accent.setStrokeWidth(1f);
+            final float t = 7f;
+            canvas.drawLine(rect.left, rect.top, rect.left + t, rect.top, accent);
+            canvas.drawLine(rect.left, rect.top, rect.left, rect.top + t, accent);
+            canvas.drawLine(rect.right - t, rect.top, rect.right, rect.top, accent);
+            canvas.drawLine(rect.right, rect.top, rect.right, rect.top + t, accent);
+            canvas.drawLine(rect.left, rect.bottom, rect.left + t, rect.bottom, accent);
+            canvas.drawLine(rect.left, rect.bottom - t, rect.left, rect.bottom, accent);
+            canvas.drawLine(rect.right - t, rect.bottom, rect.right, rect.bottom, accent);
+            canvas.drawLine(rect.right, rect.bottom - t, rect.right, rect.bottom, accent);
+            accent.setStyle(Paint.Style.FILL);
+        } else if (silkscreenTheme) {
+            // A part on a board, with the pin-1 dot that says which way round it
+            // goes. The title indents past the pad rather than sitting on it.
+            fill.setColor(cSurface);
+            canvas.drawRoundRect(rect, 4, 4, fill);
+            accent.setColor(acc);
+            accent.setAlpha(66);
+            canvas.drawRoundRect(titleRect, 4, 4, accent);
+            accent.setAlpha(255);
+            accent.setStyle(Paint.Style.STROKE);
+            accent.setStrokeWidth(1.4f);
+            canvas.drawRoundRect(rect, 4, 4, accent);
+            accent.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(rect.left + 7f, rect.top + 7f, 2.6f, accent);
+        } else if (phosphorTheme) {
+            // An instrument draws light, so there is no fill worth the name: the
+            // card is a trace over the graticule, with a brighter beam under the
+            // title instead of a header bar.
+            fill.setColor(cSurface);
+            fill.setAlpha(210);
+            canvas.drawRoundRect(rect, 8, 8, fill);
+            fill.setAlpha(255);
+            accent.setColor(acc);
+            accent.setStyle(Paint.Style.STROKE);
+            accent.setStrokeWidth(1.2f);
+            canvas.drawRoundRect(rect, 8, 8, accent);
+            accent.setStrokeWidth(1.6f);
+            canvas.drawLine(rect.left + 2, c.y + titleH, rect.right - 2, c.y + titleH, accent);
+            accent.setStyle(Paint.Style.FILL);
         } else {
             fill.setColor(cSurface);
             canvas.drawRoundRect(rect, 8, 8, fill);
@@ -473,8 +536,12 @@ public class BasketView extends View {
         titlePaint.setTextSize(13f);
         String title = c.title.isEmpty() ? c.kind : c.title;
         canvas.save();
-        canvas.clipRect(c.x + 6, c.y, c.x + c.w - 6, c.y + titleH);
-        canvas.drawText(ellipsize(title, c.w - 12, titlePaint), c.x + 6, c.y + 17, titlePaint);
+        // Silkscreen's pin-1 pad sits exactly where a title starts, so the
+        // legend clears it — the same indent the desktop applies.
+        final float titleInset = silkscreenTheme ? 15f : 6f;
+        canvas.clipRect(c.x + titleInset, c.y, c.x + c.w - 6, c.y + titleH);
+        canvas.drawText(ellipsize(title, c.w - titleInset - 6, titlePaint),
+                c.x + titleInset, c.y + 17, titlePaint);
         canvas.restore();
 
         // Content area, clipped to the card.

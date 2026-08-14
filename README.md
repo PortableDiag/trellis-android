@@ -119,10 +119,22 @@ installed copy of the app again.
 
 Two-axis appearance (dark/light × accent), matching the house style:
 **Ocean** (blue, default), **Terminal** (green, monospace), and **Trellis**
-(indigo/slate — the desktop signature). Plus three that mirror the desktop:
+(indigo/slate — the desktop signature). Plus six that mirror the desktop:
 **Sticky Notes** (solid single-color paper cards — yellow by default — on a cork
-board), **Futuristic** (a Minority-Report blue HUD with beveled tech-panel cards),
-and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
+board), **Futuristic** (a blue HUD with beveled tech-panel cards), **SynthWave**
+(the outrun neon palette), and three taken from instruments rather than
+interfaces — **Blueprint** (cyan linework on Prussian blue; cards are drawing
+sheets with a title block and registration ticks), **Silkscreen** (white legend
+and gold pads on solder-mask green; each card a part with a pin-1 dot), and
+**Phosphor** (a storage scope: P31 blue-green traces, no fills, a beam rule under
+each title). Set in Settings → Appearance.
+
+**A theme belongs to a workstation, not to the app (v0.29.0).** One Trellis
+instance serves one document, so the server *is* the document — and telling work
+from personal at a glance is worth more than one colour everywhere. Each
+configured workstation keeps its own accent; one that has never been given an
+opinion follows the app default, so changing the default still moves everything
+that has not chosen.
 
 ## Status
 

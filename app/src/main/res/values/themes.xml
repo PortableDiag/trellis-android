@@ -122,4 +122,63 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/sw_background</item>
     </style>
+
+    <!-- Blueprint — a drawing sheet: cyan linework on Prussian blue. -->
+    <style name="Theme.Trellis.Blueprint" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/bp_primary</item>
+        <item name="colorOnPrimary">@color/bp_on_primary</item>
+        <item name="colorPrimaryContainer">@color/bp_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/bp_on_primary_container</item>
+        <item name="colorSecondary">@color/bp_secondary</item>
+        <item name="android:colorBackground">@color/bp_background</item>
+        <item name="colorSurface">@color/bp_surface</item>
+        <item name="colorSurfaceVariant">@color/bp_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/bp_surface_container</item>
+        <item name="colorOnSurface">@color/bp_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/bp_on_surface_variant</item>
+        <item name="colorOutline">@color/bp_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/bp_background</item>
+    </style>
+
+    <!-- Silkscreen — a board part: white legend and gold pads on solder mask. -->
+    <style name="Theme.Trellis.Silkscreen" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/sk_primary</item>
+        <item name="colorOnPrimary">@color/sk_on_primary</item>
+        <item name="colorPrimaryContainer">@color/sk_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/sk_on_primary_container</item>
+        <item name="colorSecondary">@color/sk_secondary</item>
+        <item name="android:colorBackground">@color/sk_background</item>
+        <item name="colorSurface">@color/sk_surface</item>
+        <item name="colorSurfaceVariant">@color/sk_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/sk_surface_container</item>
+        <item name="colorOnSurface">@color/sk_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/sk_on_surface_variant</item>
+        <item name="colorOutline">@color/sk_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/sk_background</item>
+    </style>
+
+    <!-- Phosphor — an instrument: P31 traces on a graticule, monospace. -->
+    <style name="Theme.Trellis.Phosphor" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/ph_primary</item>
+        <item name="colorOnPrimary">@color/ph_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ph_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ph_on_primary_container</item>
+        <item name="colorSecondary">@color/ph_secondary</item>
+        <item name="android:colorBackground">@color/ph_background</item>
+        <item name="colorSurface">@color/ph_surface</item>
+        <item name="colorSurfaceVariant">@color/ph_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/ph_surface_container</item>
+        <item name="colorOnSurface">@color/ph_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/ph_on_surface_variant</item>
+        <item name="colorOutline">@color/ph_outline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/ph_background</item>
+        <item name="fontFamily">monospace</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
 </resources>

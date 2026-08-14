@@ -86,4 +86,46 @@
     <color name="sw_on_surface">#E8E6EE</color>
     <color name="sw_on_surface_variant">#9F92B3</color>
     <color name="sw_outline">#453A52</color>
+
+    <!-- Blueprint — cyan linework on Prussian blue. -->
+    <color name="bp_primary">#7DC3F0</color>
+    <color name="bp_on_primary">#04283F</color>
+    <color name="bp_primary_container">#164A72</color>
+    <color name="bp_on_primary_container">#DCEFFF</color>
+    <color name="bp_secondary">#9FDCFF</color>
+    <color name="bp_background">#0B2A43</color>
+    <color name="bp_surface">#113857</color>
+    <color name="bp_surface_variant">#154266</color>
+    <color name="bp_surface_container">#0F3350</color>
+    <color name="bp_on_surface">#DCEFFF</color>
+    <color name="bp_on_surface_variant">#A9CFE8</color>
+    <color name="bp_outline">#4A86B4</color>
+
+    <!-- Silkscreen — white legend and gold pads on solder-mask green. -->
+    <color name="sk_primary">#D9A82B</color>
+    <color name="sk_on_primary">#1A1200</color>
+    <color name="sk_primary_container">#5C4610</color>
+    <color name="sk_on_primary_container">#F5E2B0</color>
+    <color name="sk_secondary">#F0C862</color>
+    <color name="sk_background">#061F15</color>
+    <color name="sk_surface">#0A2E1E</color>
+    <color name="sk_surface_variant">#0E3A27</color>
+    <color name="sk_surface_container">#08281A</color>
+    <color name="sk_on_surface">#F2F4EF</color>
+    <color name="sk_on_surface_variant">#B9C6BD</color>
+    <color name="sk_outline">#8F6F22</color>
+
+    <!-- Phosphor — P31 blue-green traces on a graticule. -->
+    <color name="ph_primary">#7AF7D4</color>
+    <color name="ph_on_primary">#00201A</color>
+    <color name="ph_primary_container">#0F382F</color>
+    <color name="ph_on_primary_container">#A8FFE6</color>
+    <color name="ph_secondary">#A8FFE6</color>
+    <color name="ph_background">#020A09</color>
+    <color name="ph_surface">#051411</color>
+    <color name="ph_surface_variant">#071C18</color>
+    <color name="ph_surface_container">#04100E</color>
+    <color name="ph_on_surface">#7AF7D4</color>
+    <color name="ph_on_surface_variant">#3FA892</color>
+    <color name="ph_outline">#3FA892</color>
 </resources>

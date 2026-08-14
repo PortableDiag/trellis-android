@@ -274,11 +274,20 @@
                 android:paddingVertical="8dp"/>
 
             <TextView
+                android:id="@+id/accent_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Theme"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:paddingTop="8dp"/>
+
+            <TextView
+                android:id="@+id/accent_scope"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="4dp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"/>
 
             <RadioGroup
                 android:id="@+id/accent_group"
@@ -321,6 +330,21 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="SynthWave"/>
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_blueprint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Blueprint"/>
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_silkscreen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Silkscreen"/>
+                <com.google.android.material.radiobutton.MaterialRadioButton
+                    android:id="@+id/accent_phosphor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Phosphor"/>
             </RadioGroup>
         </LinearLayout>
     </ScrollView>

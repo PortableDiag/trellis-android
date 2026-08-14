@@ -61,6 +61,16 @@ public class ServerPrefs {
         public String host;
         public int port;
         public String key;
+        /**
+         * This server's accent, or blank to follow the app-wide default.
+         *
+         * <p>One instance serves one document, so the server <em>is</em> the
+         * document: giving each its own colour is what makes it obvious, at a
+         * glance, which one you are typing into. Blank rather than a default
+         * value on purpose — a server that has never been themed should follow
+         * the app default when that default changes.
+         */
+        public String accent = "";
 
         public Server(String name, String host, int port, String key) {
             this.name = name == null ? "" : name.trim();
@@ -89,13 +99,39 @@ public class ServerPrefs {
             o.put("host", host);
             o.put("port", port);
             o.put("key", key);
+            o.put("accent", accent);
             return o;
         }
 
         static Server fromJson(JSONObject o) {
-            return new Server(o.optString("name", ""), o.optString("host", ""),
+            Server s = new Server(o.optString("name", ""), o.optString("host", ""),
                     o.optInt("port", DEFAULT_PORT), o.optString("key", ""));
+            // Absent on every server saved before v0.29.0, which is exactly what
+            // blank means: follow the app default.
+            s.accent = o.optString("accent", "");
+            return s;
         }
+    }
+
+    /**
+     * The active server's accent, or blank if it has none (or there is no server).
+     *
+     * <p>Read on every activity's {@code setTheme}, so it must not be expensive:
+     * the server list is memoised for the process, and this is a field lookup on
+     * it.
+     */
+    public static String activeAccent(Context c) {
+        Server s = active(c);
+        return s == null || s.accent == null ? "" : s.accent;
+    }
+
+    /** Give the active server its own accent; blank puts it back on the default. */
+    public static void setActiveAccent(Context c, String accent) {
+        List<Server> list = servers(c);
+        int i = activeIndex(c);
+        if (i < 0 || i >= list.size()) return;
+        list.get(i).accent = accent == null ? "" : accent;
+        save(c, list, i);
     }
 
     private static SharedPreferences p(Context c) {
@@ -270,6 +306,15 @@ public class ServerPrefs {
     public static void update(Context c, int index, Server s) {
         List<Server> all = servers(c);
         if (index < 0 || index >= all.size()) return;
+        // **Keep the fields the caller did not set.** Every caller builds a
+        // Server out of the four form fields — name, host, port, key — so a
+        // field the form does not edit would be erased on every save. The
+        // accent was, on each onPause, the moment it was added. A blank accent
+        // coming in means "not specified", not "clear it"; clearing is
+        // setActiveAccent's job.
+        if (s.accent == null || s.accent.isEmpty()) {
+            s.accent = all.get(index).accent;
+        }
         all.set(index, s);
         save(c, all, activeIndex(c));
     }

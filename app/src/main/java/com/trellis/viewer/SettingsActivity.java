@@ -87,6 +87,17 @@ public class SettingsActivity extends AppCompatActivity {
             recreate();
         });
 
+        // Say what the picker is about to theme. A colour that turns out to
+        // belong to one workstation and not the app is a surprise the first time
+        // you switch servers and everything changes.
+        TextView accentScope = findViewById(R.id.accent_scope);
+        String activeLabel = com.trellis.viewer.net.ServerPrefs.active(this) == null
+                ? null : com.trellis.viewer.net.ServerPrefs.activeLabel(this);
+        accentScope.setText(activeLabel == null
+                ? "No workstation yet — this sets the default for all of them."
+                : "Applies to " + activeLabel + ". Each workstation keeps its own,"
+                        + " so you can tell which document you are in at a glance.");
+
         RadioGroup accentGroup = findViewById(R.id.accent_group);
         switch (ThemePrefs.accent(this)) {
             case ThemePrefs.TERMINAL:   accentGroup.check(R.id.accent_terminal); break;
@@ -94,6 +105,9 @@ public class SettingsActivity extends AppCompatActivity {
             case ThemePrefs.STICKY:     accentGroup.check(R.id.accent_sticky); break;
             case ThemePrefs.FUTURISTIC: accentGroup.check(R.id.accent_futuristic); break;
             case ThemePrefs.SYNTHWAVE:  accentGroup.check(R.id.accent_synthwave); break;
+            case ThemePrefs.BLUEPRINT:  accentGroup.check(R.id.accent_blueprint); break;
+            case ThemePrefs.SILKSCREEN: accentGroup.check(R.id.accent_silkscreen); break;
+            case ThemePrefs.PHOSPHOR:   accentGroup.check(R.id.accent_phosphor); break;
             default:                    accentGroup.check(R.id.accent_ocean); break;
         }
         accentGroup.setOnCheckedChangeListener((group, checkedId) -> {
@@ -103,7 +117,10 @@ public class SettingsActivity extends AppCompatActivity {
             else if (checkedId == R.id.accent_sticky) accent = ThemePrefs.STICKY;
             else if (checkedId == R.id.accent_futuristic) accent = ThemePrefs.FUTURISTIC;
             else if (checkedId == R.id.accent_synthwave) accent = ThemePrefs.SYNTHWAVE;
-            ThemePrefs.setAccent(this, accent);
+            else if (checkedId == R.id.accent_blueprint) accent = ThemePrefs.BLUEPRINT;
+            else if (checkedId == R.id.accent_silkscreen) accent = ThemePrefs.SILKSCREEN;
+            else if (checkedId == R.id.accent_phosphor) accent = ThemePrefs.PHOSPHOR;
+            ThemePrefs.setAccentHere(this, accent);
             recreate();
         });
     }
