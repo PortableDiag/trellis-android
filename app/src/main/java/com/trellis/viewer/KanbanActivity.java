@@ -302,7 +302,8 @@ public class KanbanActivity extends AppCompatActivity {
         v.setLayoutParams(lp);
 
         TextView title = new TextView(this);
-        title.setText(card.title.isEmpty() ? "(untitled)" : card.title);
+        title.setText(card.title.isEmpty() ? "(untitled)"
+                : com.trellis.viewer.util.WikiLinks.displayText(card.title));
         title.setTextColor(onSurface);
         title.setTextSize(15f);
         v.addView(title);

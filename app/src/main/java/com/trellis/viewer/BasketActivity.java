@@ -104,6 +104,11 @@ public class BasketActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         basket.setImageLoader(this::loadImage);
         basket.setOnImageTap(this::openImageViewer);
+        // A link in a card's title resolves exactly as one in its body does —
+        // same resolver, same order (card id, node id, then title).
+        basket.setOnTitleLinkTap(target ->
+                com.trellis.viewer.util.WikiLinks.follow(this,
+                        com.trellis.viewer.util.WikiLinks.SCHEME + android.net.Uri.encode(target)));
         basket.setOnCardTap(this::openCardReader);
         // A projection is a view of a card that lives elsewhere; tapping it goes
         // there rather than opening a second copy of it here.

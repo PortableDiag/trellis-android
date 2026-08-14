@@ -192,7 +192,7 @@ that has not chosen.
     journal day, or a token that is refused `/api/tasks` (a subtree-scoped agent
     token is) each produce a note under the basket title instead of an empty
     canvas — the silence was the actual bug.
-- **`[[wiki-links]]` are links** — tap one in the reader to follow it. `[[#1391]]`
+- **`[[wiki-links]]` are links** — in a card's **body**, in a **table cell**, and (since v0.33.0) in a card's **title**. Tap one to follow it. `[[#1391]]`
   goes to that **card**: the basket opens centred on it with a brief outline,
   because in a journal every card written on a day shares a basket, so opening
   the right basket is not the same as arriving. `[[Roadmap]]`, `[[62]]` and

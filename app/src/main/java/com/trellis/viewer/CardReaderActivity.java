@@ -115,7 +115,10 @@ public class CardReaderActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle(title == null || title.isEmpty() ? "Card" : title);
+            // A [[link]] in a title reads as its display half here too — the
+            // brackets are syntax, and the toolbar is not a place to follow one.
+            getSupportActionBar().setTitle(title == null || title.isEmpty()
+                    ? "Card" : WikiLinks.displayText(title));
         }
         toolbar.setNavigationOnClickListener(v -> handleBack());
         // The dispatcher, not the deprecated onBackPressed override: predictive

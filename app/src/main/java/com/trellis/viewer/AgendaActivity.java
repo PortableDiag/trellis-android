@@ -264,7 +264,8 @@ public class AgendaActivity extends AppCompatActivity {
         card.setLayoutParams(lp);
 
         TextView title = new TextView(this);
-        title.setText(t.title.isEmpty() ? "(untitled)" : t.title);
+        title.setText(t.title.isEmpty() ? "(untitled)"
+                : com.trellis.viewer.util.WikiLinks.displayText(t.title));
         title.setTextColor(onSurface);
         title.setTextSize(16f);
         card.addView(title);

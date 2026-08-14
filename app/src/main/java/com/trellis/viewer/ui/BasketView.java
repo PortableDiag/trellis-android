@@ -50,6 +50,7 @@ public class BasketView extends View {
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
     /** Theme-specific card rendering (Sticky = one solid color; Futuristic = beveled). */
+    private final int cLink;
     private final boolean stickyTheme, futuristicTheme, glowTheme;
     private final boolean blueprintTheme, silkscreenTheme, phosphorTheme;
     private static final int STICKY_YELLOW = Color.rgb(0xff, 0xe9, 0x6b);
@@ -82,6 +83,17 @@ public class BasketView extends View {
     }
 
     /** Notified when a text/code card is tapped (to open the scrollable reader). */
+    /** A {@code [[wiki-link]]} tapped in a card's title, as its raw target. */
+    public interface OnTitleLinkTap {
+        void tapped(String target);
+    }
+
+    private OnTitleLinkTap titleTapListener;
+
+    public void setOnTitleLinkTap(OnTitleLinkTap l) {
+        this.titleTapListener = l;
+    }
+
     public interface OnCardTap {
         void tapped(Card card);
     }
@@ -107,6 +119,7 @@ public class BasketView extends View {
         cSurfaceVariant = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorSurfaceVariant, Color.LTGRAY);
         cOnSurfaceVariant = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.DKGRAY);
         cOutline = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, Color.GRAY);
+        cLink = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, Color.CYAN);
 
         String themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
         stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(themeAccent);
@@ -570,8 +583,7 @@ public class BasketView extends View {
         // legend clears it — the same indent the desktop applies.
         final float titleInset = silkscreenTheme ? 15f : 6f;
         canvas.clipRect(c.x + titleInset, c.y, c.x + c.w - 6, c.y + titleH);
-        canvas.drawText(ellipsize(title, c.w - titleInset - 6, titlePaint),
-                c.x + titleInset, c.y + 17, titlePaint);
+        drawTitleRuns(canvas, c, title, titleInset, titleH);
         canvas.restore();
 
         // Content area, clipped to the card.
@@ -628,6 +640,83 @@ public class BasketView extends View {
         p.lineTo(r.left, r.bottom - c);
         p.close();
         return p;
+    }
+
+    /**
+     * Draw a card title, with any {@code [[wiki-link]]} in it drawn as a link.
+     *
+     * <p><b>The link is already real; the title was the one place you could not
+     * follow it.</b> The backlink index reads titles, so a card titled
+     * "Figure — source: [[#10238]]" is genuinely linked — the desktop fixed this
+     * in v0.103.0 and the phone printed the brackets until now. It matters
+     * because that is the pattern the diagram recipe teaches: a picture titled
+     * with the script that drew it.
+     *
+     * <p>Runs are measured as they are drawn and their x-ranges kept in card
+     * coordinates, so the tap test costs nothing extra and cannot disagree with
+     * what was painted.
+     */
+    private void drawTitleRuns(Canvas canvas, Card c, String title, float inset, float titleH) {
+        final java.util.List<com.trellis.viewer.util.WikiLinks.Seg> segs =
+                com.trellis.viewer.util.WikiLinks.segments(title);
+        titleLinks.remove(c.id);
+        if (segs.size() == 1 && segs.get(0).target == null) {
+            // The overwhelmingly common case: no link, no measuring, no map entry.
+            canvas.drawText(ellipsize(title, c.w - inset - 6, titlePaint),
+                    c.x + inset, c.y + 17, titlePaint);
+            return;
+        }
+        final float limit = c.x + c.w - 6;
+        float x = c.x + inset;
+        java.util.List<float[]> runs = new java.util.ArrayList<>();  // {x0, x1, segIndex}
+        for (int i = 0; i < segs.size() && x < limit; i++) {
+            com.trellis.viewer.util.WikiLinks.Seg seg = segs.get(i);
+            float w = titlePaint.measureText(seg.text);
+            boolean link = seg.target != null;
+            int was = titlePaint.getColor();
+            if (link) {
+                titlePaint.setColor(cLink);
+                titlePaint.setUnderlineText(true);
+            }
+            canvas.drawText(seg.text, x, c.y + 17, titlePaint);
+            if (link) {
+                titlePaint.setColor(was);
+                titlePaint.setUnderlineText(false);
+                runs.add(new float[]{x, Math.min(x + w, limit), i});
+            }
+            x += w;
+        }
+        if (!runs.isEmpty()) titleLinks.put(c.id, new TitleLinks(segs, runs, titleH));
+    }
+
+    /** Where a card's title links are, in card coordinates. */
+    private static final class TitleLinks {
+        final java.util.List<com.trellis.viewer.util.WikiLinks.Seg> segs;
+        final java.util.List<float[]> runs;
+        final float titleH;
+        TitleLinks(java.util.List<com.trellis.viewer.util.WikiLinks.Seg> segs,
+                   java.util.List<float[]> runs, float titleH) {
+            this.segs = segs; this.runs = runs; this.titleH = titleH;
+        }
+    }
+
+    private final java.util.Map<Long, TitleLinks> titleLinks = new java.util.HashMap<>();
+
+    /**
+     * The link target under a tap on a card's title, or null.
+     *
+     * <p>Only a tap on the link *text* counts — the rest of the title bar still
+     * belongs to the card, exactly as on the desktop, where dragging a card by
+     * its title had to keep working.
+     */
+    private String titleLinkAt(Card c, float wx, float wy) {
+        TitleLinks t = titleLinks.get(c.id);
+        if (t == null) return null;
+        if (wy < c.y || wy > c.y + t.titleH) return null;
+        for (float[] r : t.runs) {
+            if (wx >= r[0] && wx <= r[1]) return t.segs.get((int) r[2]).target;
+        }
+        return null;
     }
 
     /** The title strip with only its top-right corner cut, to match a bevelDiag card. */
@@ -907,6 +996,25 @@ public class BasketView extends View {
                     return true;
                 }
                 return false;
+            }
+            // A link in the title wins over opening the card — that is what a
+            // link is for, and the rest of the title bar still opens the card.
+            if (titleTapListener != null) {
+                // Through the card's own depth projection, exactly as the hit
+                // test above did — otherwise the link's box is somewhere the
+                // card is not.
+                float s = depthScaleOf(c), px = e.getX(), py = e.getY();
+                if (s != 1f) {
+                    float fx = getWidth() / 2f, fy = getHeight() / 2f;
+                    px = fx + (px - fx) / s;
+                    py = fy + (py - fy) / s;
+                }
+                float wx = (px - offsetX) / scale, wy = (py - offsetY) / scale;
+                String target = titleLinkAt(c, wx, wy);
+                if (target != null) {
+                    titleTapListener.tapped(target);
+                    return true;
+                }
             }
             if ("image".equals(c.kind) && imageTapListener != null) {
                 imageTapListener.tapped(c);
