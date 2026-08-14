@@ -157,19 +157,29 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   documents, so guessing would land on a real card that is not the one meant.
   `hypercube://` is accepted too. Ask the desktop for a link with
   `GET /api/cards/{cid}/link` rather than assembling one.
-- **The hypercube, as far as a viewer can carry it.** Trellis is a tree of
-  baskets; a **basket** is the space — `x` and `y` always, `z` with Depth on and a
-  time axis with Time on, at which point that basket is a *hypercube*. (The tree
-  is not a dimension: it is the index over baskets.) **Time** is a real toggle
-  here, in **Settings → Hypercube**, off by default: a journal day then also shows
-  cards from *other days* whose `start::`→`due::` span covers it — the same card,
-  drawn as a projection that names where it lives and takes you there when
-  tapped. Same two limits as the desktop, both learned by running it: containment
-  rather than the agenda's overdue rule, and only cards that live in other days.
-- **Card depth is respected.** Desktop v0.92.0 gave cards a `z`; the viewer is
-  flat, which is exactly what the desktop calls Depth-off — so `z` is read as the
-  stacking order and cards draw (and are tapped) in the same order as on the
-  desktop instead of in document order.
+- **The hypercube — both axes, on the basket's own menu (v0.28.0).** Trellis is
+  a tree of baskets; a **basket** is the space — `x` and `y` always, `z` with
+  **Depth** on and a time axis with **Time** on, at which point that basket is a
+  *hypercube*. (The tree is not a dimension: it is the index over baskets.) Both
+  are off by default and both are in the basket's overflow menu, where you can
+  see what they do — they were reachable only from Settings, which is how a
+  basket could be missing a card that is on the desktop with nothing to say why.
+  - **Depth** projects every card through the **same pinhole camera the desktop
+    uses** — same camera distance, same clamps — so a basket arranged in depth
+    reads as the same arrangement on both. Cards are drawn far-to-near and each
+    is **hit-tested through its own projection**, because tapping where a card
+    looks and getting a different one is how a 3-D view becomes unusable while
+    still looking correct. Off, `z` is only the stacking order and nothing is
+    lost.
+  - **Time** shows, in a journal day, the cards from *other days* whose
+    `start::`→`due::` span covers it — the same card, drawn as a projection that
+    names where it lives and takes you there when tapped. Same two limits as the
+    desktop, both learned by running it: containment rather than the agenda's
+    overdue rule, and only cards that live in other days.
+  - **When it shows you nothing, it says why.** Time off, a basket that is not a
+    journal day, or a token that is refused `/api/tasks` (a subtree-scoped agent
+    token is) each produce a note under the basket title instead of an empty
+    canvas — the silence was the actual bug.
 - **`[[wiki-links]]` are links** — tap one in the reader to follow it. `[[#1391]]`
   goes to that **card**: the basket opens centred on it with a brief outline,
   because in a journal every card written on a day shares a basket, so opening

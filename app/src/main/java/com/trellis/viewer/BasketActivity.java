@@ -239,6 +239,9 @@ public class BasketActivity extends AppCompatActivity {
         });
     }
 
+    /** Why the Time axis produced nothing here, or null when it produced something. */
+    private String projectionNote;
+
     /** Launches the card reader and reloads the basket if it edited anything. */
     private androidx.activity.result.ActivityResultLauncher<Intent> openReader;
 
@@ -255,6 +258,38 @@ public class BasketActivity extends AppCompatActivity {
             }
         }
         return arr.toString();
+    }
+
+    @Override public boolean onCreateOptionsMenu(android.view.Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_basket, menu);
+        return true;
+    }
+
+    @Override public boolean onPrepareOptionsMenu(android.view.Menu menu) {
+        menu.findItem(R.id.action_depth)
+                .setChecked(com.trellis.viewer.util.Hypercube.depthMode(this));
+        menu.findItem(R.id.action_time)
+                .setChecked(com.trellis.viewer.util.Hypercube.timeMode(this));
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        final int id = item.getItemId();
+        if (id == R.id.action_depth) {
+            final boolean on = !item.isChecked();
+            com.trellis.viewer.util.Hypercube.setDepthMode(this, on);
+            basket.setDepthMode(on);
+            invalidateOptionsMenu();
+            return true;
+        }
+        if (id == R.id.action_time) {
+            final boolean on = !item.isChecked();
+            com.trellis.viewer.util.Hypercube.setTimeMode(this, on);
+            invalidateOptionsMenu();
+            load();   // projections are fetched, not merely hidden
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void toast(String msg) {
@@ -399,8 +434,10 @@ public class BasketActivity extends AppCompatActivity {
                     status.setVisibility(View.GONE);
                     basket.setVisibility(View.VISIBLE);
                     basket.clearPendingImageRequests(); // retry any images that hadn't loaded
+                    basket.setDepthMode(com.trellis.viewer.util.Hypercube.depthMode(this));
                     basket.setCards(result);
                     basket.setProjected(proj);
+                    setProjectionNote(proj.isEmpty() ? projectionNote : null);
                 }
             });
         });
@@ -420,9 +457,16 @@ public class BasketActivity extends AppCompatActivity {
      */
     private java.util.List<BasketView.Projected> loadProjections(TrellisApi api) {
         final java.util.List<BasketView.Projected> out = new java.util.ArrayList<>();
-        if (!com.trellis.viewer.util.Hypercube.timeMode(this)) return out;
+        projectionNote = null;
+        if (!com.trellis.viewer.util.Hypercube.timeMode(this)) {
+            projectionNote = getString(R.string.time_off_here);
+            return out;
+        }
         final long day = com.trellis.viewer.util.Hypercube.dayOf(thisNodeTitle);
-        if (day == Long.MIN_VALUE) return out; // not a journal day; nothing to project
+        if (day == Long.MIN_VALUE) {          // not a journal day; nothing to project
+            projectionNote = getString(R.string.time_not_a_day);
+            return out;
+        }
         try {
             final org.json.JSONArray tasks = api.tasks().optJSONArray("tasks");
             if (tasks == null) return out;
@@ -445,9 +489,13 @@ public class BasketActivity extends AppCompatActivity {
                 final Card c = Card.parseCard(wrap.optJSONObject("card"));
                 if (c != null) out.add(new BasketView.Projected(c, home, t.optString("node_title")));
             }
-        } catch (Exception ignored) {
-            // A projection is an extra; failing to fetch one must never stop the
-            // basket itself from drawing.
+        } catch (Exception e) {
+            // A projection is an extra: failing to fetch one must never stop the
+            // basket drawing. But it must not fail *silently* either — a
+            // subtree-scoped agent token is refused /api/tasks outright, and the
+            // only symptom used to be a card that is on the desktop and not here.
+            projectionNote = getString(R.string.time_blocked,
+                    e.getMessage() == null ? e.toString() : e.getMessage());
         }
         return out;
     }
@@ -457,6 +505,23 @@ public class BasketActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().setSubtitle(offline ? "⚠ Offline — cached copy" : null);
         }
+    }
+
+    /**
+     * Say why a day is showing none of the work that spans it.
+     *
+     * <p>Only on a journal day, and only when the axis produced nothing: an
+     * ordinary basket has no business explaining an axis that does not apply to
+     * it. The case this exists for is the one that was reported — a card visible
+     * on the desktop and absent here, with the app offering no reason at all.
+     */
+    private void setProjectionNote(String note) {
+        if (note == null || getSupportActionBar() == null) return;
+        if (getSupportActionBar().getSubtitle() != null) return;   // offline wins
+        final boolean isDay =
+                com.trellis.viewer.util.Hypercube.dayOf(thisNodeTitle) != Long.MIN_VALUE;
+        final boolean blocked = note.startsWith(getString(R.string.time_blocked, "").trim());
+        if (isDay || blocked) getSupportActionBar().setSubtitle(note);
     }
 
     /** Fetch an image card's picture off-thread, decode it, and hand it to the view. */

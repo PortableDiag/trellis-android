@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- The two axes live on the basket, where you can see what they do — the
+         desktop puts them beside Dock and Snap for the same reason. They were
+         reachable only from Settings, which is why a basket could be missing a
+         card with no hint that an axis was switched off. -->
+    <item
+        android:id="@+id/action_depth"
+        android:title="@string/axis_depth"
+        android:checkable="true"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_time"
+        android:title="@string/axis_time"
+        android:checkable="true"
+        app:showAsAction="never"/>
+</menu>

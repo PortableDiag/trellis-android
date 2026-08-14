@@ -158,7 +158,22 @@
                 android:paddingBottom="8dp"
                 android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:text="A basket is x and y. The desktop adds z (Depth) and time. Depth is read here as the stacking order — the viewer is flat, which is what the desktop calls Depth off."/>
+                android:text="A basket is x and y. Depth adds z and Time adds a fourth axis, at which point the basket is a hypercube. Both are off by default, and both are also on a basket\'s own menu — that is where you will usually want them."/>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/depth_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="8dp"
+                android:text="Depth — a basket is a volume"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:text="Cards are projected through the same camera the desktop uses, so a basket arranged in depth reads the same on both. Off, z is only the stacking order and nothing is lost."/>
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/time_switch"

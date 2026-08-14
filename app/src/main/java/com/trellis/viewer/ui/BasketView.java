@@ -42,6 +42,8 @@ public class BasketView extends View {
 
     private final List<Card> cards = new ArrayList<>();
     private float scale = 1f, offsetX = 0f, offsetY = 0f;
+    /** Depth: cards projected through a camera rather than drawn flat. */
+    private boolean depthMode;
     private boolean fitPending = true;
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
@@ -206,12 +208,41 @@ public class BasketView extends View {
         return null;
     }
 
-    /** Topmost card under a screen point, or null. Later-drawn cards win (on top). */
+    /**
+     * The cards in the order they are painted: farthest first.
+     *
+     * <p>With Depth off this is the list as given, whose order already follows
+     * {@code z} as a stacking order — so the phone and the desktop agree about
+     * what is on top whether or not the camera is on.
+     */
+    private java.util.List<Card> inDrawOrder() {
+        if (!depthMode) return cards;
+        final java.util.List<Card> sorted = new java.util.ArrayList<>(cards);
+        java.util.Collections.sort(sorted, (a, b) -> Float.compare(a.z, b.z));
+        return sorted;
+    }
+
+    /**
+     * Topmost card under a screen point, or null. Later-drawn cards win (on top).
+     *
+     * <p>Each card is tested through <em>its own</em> transform: a projected card
+     * is not where its untransformed rectangle says it is, and hit-testing the
+     * flat rectangle would mean tapping empty space and getting a card — the
+     * classic way a 3-D view becomes unusable while looking correct.
+     */
     private Card cardAt(float screenX, float screenY) {
-        float wx = (screenX - offsetX) / scale;
-        float wy = (screenY - offsetY) / scale;
-        for (int i = cards.size() - 1; i >= 0; i--) {
-            Card c = cards.get(i);
+        final java.util.List<Card> order = inDrawOrder();
+        for (int i = order.size() - 1; i >= 0; i--) {
+            final Card c = order.get(i);
+            final float s = depthScaleOf(c);
+            float px = screenX, py = screenY;
+            if (s != 1f) {   // undo the projection about the viewport centre
+                final float fx = getWidth() / 2f, fy = getHeight() / 2f;
+                px = fx + (screenX - fx) / s;
+                py = fy + (screenY - fy) / s;
+            }
+            final float wx = (px - offsetX) / scale;
+            final float wy = (py - offsetY) / scale;
             if (wx >= c.x && wx <= c.x + c.w && wy >= c.y && wy <= c.y + c.h) {
                 return c;
             }
@@ -245,6 +276,35 @@ public class BasketView extends View {
         return cards.isEmpty();
     }
 
+    /**
+     * Turn the Depth axis on or off.
+     *
+     * <p>Off, {@code z} is only the stacking order, which is what the desktop
+     * calls Depth-off — nothing is lost either way, and the same cards are there.
+     */
+    public void setDepthMode(boolean on) {
+        if (depthMode == on) return;
+        depthMode = on;
+        invalidate();
+    }
+
+    public boolean isDepthMode() {
+        return depthMode;
+    }
+
+    /**
+     * The screen-space scale a card is drawn at, and the point it scales about.
+     *
+     * <p>The camera looks through the centre of the viewport: a card at
+     * {@code z = 0} is exactly where it would be with Depth off, near ones grow
+     * and far ones shrink, all about that one point. Matching the desktop's
+     * focus behaviour matters more than the number — it is what makes the two
+     * views of one basket recognisably the same arrangement.
+     */
+    private float depthScaleOf(Card c) {
+        return depthMode ? com.trellis.viewer.util.Hypercube.depthScale(c.z) : 1f;
+    }
+
     @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
         super.onSizeChanged(w, h, ow, oh);
         fitPending = true;
@@ -276,7 +336,30 @@ public class BasketView extends View {
         // Projections behind the day's own cards: work merely passing through a
         // day must never sit in front of what the day is actually about.
         for (Projected pr : projected) drawProjected(canvas, pr);
-        for (Card c : cards) drawCard(canvas, c);
+        canvas.restore();
+
+        // Each card gets its own transform, because each sits at its own depth.
+        // Drawn far-to-near so a nearer card covers a farther one — with Depth
+        // off every scale is 1 and this is the plain painter's order the view
+        // always had.
+        for (Card c : inDrawOrder()) {
+            final float s = depthScaleOf(c);
+            canvas.save();
+            if (s != 1f) {
+                final float fx = getWidth() / 2f, fy = getHeight() / 2f;
+                canvas.translate(fx, fy);
+                canvas.scale(s, s);
+                canvas.translate(-fx, -fy);
+            }
+            canvas.translate(offsetX, offsetY);
+            canvas.scale(scale, scale);
+            drawCard(canvas, c);
+            canvas.restore();
+        }
+
+        canvas.save();
+        canvas.translate(offsetX, offsetY);
+        canvas.scale(scale, scale);
         drawHighlight(canvas);
         canvas.restore();
     }

@@ -11,16 +11,30 @@ import android.content.SharedPreferences;
  * Depth on, and a <em>time</em> axis with Time on — at which point that basket is
  * a hypercube. The tree is <b>not</b> a dimension; it is the index over baskets.
  *
- * <p><b>What the phone does with each.</b> <em>Depth</em> is read but not
- * rendered in perspective: the viewer is flat, which is exactly the desktop's
- * Depth-off reading of {@code z} — a stacking order — so cards draw and are
- * tapped in the same order as on the desktop. <em>Time</em> is a real toggle
- * here, because showing a task in every day it spans needs no camera.
+ * <p><b>What the phone does with each.</b> Both are real toggles here as of
+ * v0.28.0. <em>Depth</em> projects each card through the same pinhole camera the
+ * desktop uses — the same {@link #CAMERA_DIST} and the same clamps — so a basket
+ * reads the same on both. Off, {@code z} is the stacking order and nothing is
+ * lost. <em>Time</em> shows a task in every day it spans, which needs no camera
+ * at all.
  */
 public final class Hypercube {
 
     private static final String PREFS = "hypercube";
     private static final String K_TIME = "time_mode";
+    private static final String K_DEPTH = "depth_mode";
+
+    /**
+     * Camera distance, in canvas units — the desktop's {@code CAMERA_DIST}.
+     *
+     * <p>Copied deliberately rather than approximated: a basket arranged in depth
+     * on the desktop has to read as the same arrangement here, and any other
+     * number silently makes it a different scene.
+     */
+    public static final float CAMERA_DIST = 2000f;
+    /** Clamps on {@code z} — past these a card is through the camera or unreadable. */
+    public static final float Z_MIN = -1600f;
+    public static final float Z_MAX = 1200f;
 
     private Hypercube() {}
 
@@ -35,6 +49,31 @@ public final class Hypercube {
 
     public static void setTimeMode(Context c, boolean on) {
         p(c).edit().putBoolean(K_TIME, on).apply();
+    }
+
+    /** Off by default, as on the desktop: a basket is flat until you say otherwise. */
+    public static boolean depthMode(Context c) {
+        return p(c).getBoolean(K_DEPTH, false);
+    }
+
+    public static void setDepthMode(Context c, boolean on) {
+        p(c).edit().putBoolean(K_DEPTH, on).apply();
+    }
+
+    /**
+     * The scale a card at depth {@code z} is drawn at — a pinhole projection,
+     * not "smaller and fainter".
+     *
+     * <p>Positive {@code z} is toward the viewer, so it shortens the camera
+     * distance and the card grows. Its position scales about the same focus
+     * point, which is what keeps a depth arrangement recognisable rather than
+     * merely differently sized.
+     */
+    public static float depthScale(float z) {
+        if (z == 0f) return 1f;
+        final float clamped = Math.max(Z_MIN, Math.min(Z_MAX, z));
+        final float s = CAMERA_DIST / (CAMERA_DIST - clamped);
+        return Math.max(0.05f, Math.min(20f, s));
     }
 
     /**

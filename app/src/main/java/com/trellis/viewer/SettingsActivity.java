@@ -120,6 +120,11 @@ public class SettingsActivity extends AppCompatActivity {
      * would always open.
      */
     private void bindLock() {
+        MaterialSwitch depthSwitch = findViewById(R.id.depth_switch);
+        depthSwitch.setChecked(com.trellis.viewer.util.Hypercube.depthMode(this));
+        depthSwitch.setOnCheckedChangeListener((v, on) ->
+                com.trellis.viewer.util.Hypercube.setDepthMode(this, on));
+
         MaterialSwitch timeSwitch = findViewById(R.id.time_switch);
         timeSwitch.setChecked(com.trellis.viewer.util.Hypercube.timeMode(this));
         timeSwitch.setOnCheckedChangeListener((v, on) ->

@@ -15,4 +15,11 @@
     <string name="discard_changes">Discard changes?</string>
     <string name="discard">Discard</string>
     <string name="keep_editing">Keep editing</string>
+
+    <!-- Hypercube (v0.28.0) -->
+    <string name="axis_depth">Depth — a basket is a volume</string>
+    <string name="axis_time">Time — a task spans the days it covers</string>
+    <string name="time_off_here">Time is off — cards spanning this day are hidden</string>
+    <string name="time_not_a_day">Time is on, but this basket isn\'t a journal day</string>
+    <string name="time_blocked">Time can\'t read tasks: %1$s</string>
 </resources>
