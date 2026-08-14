@@ -150,6 +150,31 @@ public class TrellisApi {
         return new JSONObject(getCached("/tasks"));
     }
 
+    /** GET /tags — every {@code #tag} in the document with its card count. */
+    public JSONObject tags() throws IOException, JSONException {
+        return new JSONObject(getCached("/tags"));
+    }
+
+    /** GET /tags?name=… — the cards carrying one tag, with a snippet each. */
+    public JSONObject tag(String name) throws IOException, JSONException {
+        return new JSONObject(getCached("/tags?name=" + java.net.URLEncoder.encode(name, "UTF-8")));
+    }
+
+    /** GET /nodes/{id}/backlinks — the cards whose text links to this basket. */
+    public JSONObject backlinks(long node) throws IOException, JSONException {
+        return new JSONObject(getCached("/nodes/" + node + "/backlinks"));
+    }
+
+    /** GET /cards/{cid}/backlinks — the cards that link to this card. */
+    public JSONObject cardBacklinks(long card) throws IOException, JSONException {
+        return new JSONObject(getCached("/cards/" + card + "/backlinks"));
+    }
+
+    /** GET /graph — the wiki-link graph: linked nodes and the edges between. */
+    public JSONObject graph() throws IOException, JSONException {
+        return new JSONObject(getCached("/graph"));
+    }
+
     /** GET /kanban — cards grouped by {@code status::} value into columns
      *  ({@code {today_days, columns:[{status,count,cards:[…]}]}}). Cached for offline. */
     public JSONObject kanban() throws IOException, JSONException {

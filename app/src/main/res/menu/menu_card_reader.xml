@@ -16,4 +16,9 @@
         android:id="@+id/action_status"
         android:title="@string/set_status"
         app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_card_backlinks"
+        android:title="@string/links_here"
+        app:showAsAction="never"/>
 </menu>

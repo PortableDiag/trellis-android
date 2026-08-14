@@ -17,4 +17,9 @@
         android:title="@string/axis_time"
         android:checkable="true"
         app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_backlinks"
+        android:title="@string/links_here"
+        app:showAsAction="never"/>
 </menu>

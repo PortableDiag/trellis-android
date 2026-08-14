@@ -224,6 +224,14 @@ that has not chosen.
 
   Deliberately not editable here: tables, sketches, and a card that **mirrors a
   file** — the file owns that text, and the desktop refuses the edit too (409).
+- **Tags** (overflow menu) — every `#tag` in the document with its card count;
+  tap one for the cards that carry it, and tap a card to arrive **at the card**,
+  not merely in its basket. In a journal every card written that day shares one
+  basket, so opening the basket is not the same as arriving.
+- **What links here** — on a basket's menu and on a card's, the cards whose text
+  carries a `[[wiki-link]]` to it. Following a link is the easy half; knowing
+  what points *at* what you are reading is the half that needs a screen. An empty
+  result says so, and names the link syntax that would fill it.
 - **Agenda and Kanban** (overflow menu) — the desktop task views, read-only. Each
   row names the task's **full basket path** (`Newsletter › Open Items`),
   because basket names repeat across projects. **Filter by project** in either

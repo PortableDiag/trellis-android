@@ -244,6 +244,7 @@ public class CardReaderActivity extends AppCompatActivity {
         menu.findItem(R.id.action_edit).setVisible(editable && !editing);
         menu.findItem(R.id.action_save).setVisible(editing);
         menu.findItem(R.id.action_status).setVisible(addressable && !editing);
+        menu.findItem(R.id.action_card_backlinks).setVisible(cardId >= 0 && !editing);
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -255,6 +256,14 @@ public class CardReaderActivity extends AppCompatActivity {
         }
         if (id == R.id.action_save) {
             save();
+            return true;
+        }
+        if (id == R.id.action_card_backlinks) {
+            android.content.Intent i = new android.content.Intent(this, BacklinksActivity.class);
+            i.putExtra(BacklinksActivity.EXTRA_CARD_ID, cardId);
+            i.putExtra(BacklinksActivity.EXTRA_TITLE,
+                    getIntent().getStringExtra(EXTRA_TITLE));
+            startActivity(i);
             return true;
         }
         if (id == R.id.action_status) {

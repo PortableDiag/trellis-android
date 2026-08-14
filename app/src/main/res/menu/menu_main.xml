@@ -30,6 +30,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_tags"
+        android:title="Tags"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_collapse_all"
         android:title="Collapse all"
         app:showAsAction="never"/>

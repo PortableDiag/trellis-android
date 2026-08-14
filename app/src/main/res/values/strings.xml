@@ -22,4 +22,7 @@
     <string name="time_off_here">Time is off — cards spanning this day are hidden</string>
     <string name="time_not_a_day">Time is on, but this basket isn\'t a journal day</string>
     <string name="time_blocked">Time can\'t read tasks: %1$s</string>
+
+    <!-- Backlinks (v0.31.0) -->
+    <string name="links_here">What links here</string>
 </resources>

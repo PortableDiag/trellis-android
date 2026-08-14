@@ -282,6 +282,13 @@ public class BasketActivity extends AppCompatActivity {
             invalidateOptionsMenu();
             return true;
         }
+        if (id == R.id.action_backlinks) {
+            Intent i = new Intent(this, BacklinksActivity.class);
+            i.putExtra(BacklinksActivity.EXTRA_NODE_ID, nodeId);
+            i.putExtra(BacklinksActivity.EXTRA_TITLE, thisNodeTitle);
+            startActivity(i);
+            return true;
+        }
         if (id == R.id.action_time) {
             final boolean on = !item.isChecked();
             com.trellis.viewer.util.Hypercube.setTimeMode(this, on);

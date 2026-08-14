@@ -64,6 +64,14 @@
             android:exported="false"/>
 
         <activity
+            android:name=".TagsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".BacklinksActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".ImageViewerActivity"
             android:theme="@style/Theme.Trellis.Viewer"
             android:exported="false"/>
