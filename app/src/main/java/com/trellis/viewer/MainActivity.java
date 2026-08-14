@@ -155,6 +155,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_tags) {
             startActivity(new Intent(this, TagsActivity.class));
             return true;
+        } else if (id == R.id.action_graph) {
+            startActivity(new Intent(this, GraphActivity.class));
+            return true;
         } else if (id == R.id.action_collapse_all) {
             expandedIds.clear();
             saveExpandedState();

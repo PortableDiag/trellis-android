@@ -35,6 +35,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_graph"
+        android:title="Link graph"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_collapse_all"
         android:title="Collapse all"
         app:showAsAction="never"/>

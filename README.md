@@ -232,6 +232,14 @@ that has not chosen.
   carries a `[[wiki-link]]` to it. Following a link is the easy half; knowing
   what points *at* what you are reading is the half that needs a screen. An empty
   result says so, and names the link syntax that would fill it.
+- **Link graph** (overflow menu) — which baskets link to which, as a picture.
+  The tree already shows the hierarchy, so this exists to show the shape the
+  hierarchy cannot: the links that cut across it. Laid out by an **annealed force
+  simulation** that comes to rest and then stops asking for frames — a physics
+  loop that never converges is a battery drain that looks like a feature. Seeded
+  on a circle so the same document lays out the same way every time; busier
+  baskets draw bigger; arrowheads say which way each link points. Pinch, drag,
+  and tap a node to open that basket.
 - **Agenda and Kanban** (overflow menu) — the desktop task views, read-only. Each
   row names the task's **full basket path** (`Newsletter › Open Items`),
   because basket names repeat across projects. **Filter by project** in either
