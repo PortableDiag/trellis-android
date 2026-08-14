@@ -31,6 +31,17 @@ public class Card {
     /** The file this card mirrors, or empty. A mirrored body belongs to the
      *  file: the desktop refuses to edit one (409), so the phone does not offer. */
     public String source = "";
+    /**
+     * Attention, set by a person or an agent: "", "glow" or "pulse".
+     *
+     * <p>Read from {@code emphasis_live} when the desktop sends it — that field
+     * is the one that accounts for the expiry, so a lapsed highlight is already
+     * gone by the time it reaches the phone and the two never disagree about
+     * what "now" is.
+     */
+    public String emphasis = "";
+    /** Halo strength 0..1. */
+    public float emphasisIntensity = 1f;
     // image (pixel data isn't exposed by the API yet — only name/count)
     public String imageName = "";
     public int imageCount;
@@ -75,6 +86,10 @@ public class Card {
         Card c = new Card();
         c.id = o.optLong("id");
         c.source = o.optString("source", "");
+        // emphasis_live is present only when there is an expiry; it is the
+        // authority when it is there.
+        c.emphasis = o.optString("emphasis_live", o.optString("emphasis", ""));
+        c.emphasisIntensity = (float) o.optDouble("emphasis_intensity", 1.0);
         c.title = o.optString("title", "");
         c.kind = o.optString("kind", "text");
         c.color = rgb(o.optJSONArray("color"));

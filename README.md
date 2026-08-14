@@ -200,6 +200,13 @@ that has not chosen.
   them (card id, then node id, then case-insensitive title). A link that resolves
   to nothing says so instead of doing nothing. Needs Trellis ≥ 0.87.0 for
   `GET /api/cards/{cid}`.
+- **Emphasis is honoured (v0.30.0)** — a card the desktop or an agent marked
+  **glow** or **pulse** wears the same halo here. The phone reads
+  `emphasis_live`, the field that already accounts for the expiry, so a lapsed
+  highlight is gone before it arrives and the two never disagree about what
+  "now" is. A pulse asks for another frame **only while one is on screen**;
+  otherwise an animation callback would spin the view for ever on a basket with
+  no emphasis in it, on a battery.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
   or a **picked image** as a card in that node.
 - **Editing (v0.27.0)** — the three edits worth making on a phone, each one call

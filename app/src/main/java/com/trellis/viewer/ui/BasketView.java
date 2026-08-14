@@ -44,6 +44,8 @@ public class BasketView extends View {
     private float scale = 1f, offsetX = 0f, offsetY = 0f;
     /** Depth: cards projected through a camera rather than drawn flat. */
     private boolean depthMode;
+    /** Set while drawing if any card pulsed, so only then do we ask for another frame. */
+    private boolean pulsing;
     private boolean fitPending = true;
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
@@ -367,6 +369,14 @@ public class BasketView extends View {
         canvas.scale(scale, scale);
         drawHighlight(canvas);
         canvas.restore();
+
+        // Keep the pulse breathing — but only because one is on screen. An
+        // unconditional animation callback would spin the view for ever on a
+        // basket that has no emphasis in it at all, on a battery.
+        if (pulsing) {
+            pulsing = false;
+            postInvalidateOnAnimation();
+        }
     }
 
     /**
@@ -423,6 +433,26 @@ public class BasketView extends View {
         RectF rect = new RectF(c.x, c.y, c.x + c.w, c.y + c.h);
         RectF titleRect = new RectF(c.x, c.y, c.x + c.w, c.y + titleH);
         int acc = c.color != null ? Color.rgb(c.color[0], c.color[1], c.color[2]) : cSurfaceVariant;
+
+        // Attention halo, independent of the theme's glow. Pulse is a slow sine
+        // that never reaches zero — 1.8s, matching the desktop, and well under
+        // the ~3 Hz that makes flashing a seizure risk.
+        if (!c.emphasis.isEmpty()) {
+            float amount = Math.max(0f, Math.min(1f, c.emphasisIntensity));
+            if ("pulse".equals(c.emphasis)) {
+                double t = android.os.SystemClock.uptimeMillis() / 1000.0;
+                amount *= 0.7f + 0.3f * (float) Math.sin(t * 2 * Math.PI / 1.8);
+                pulsing = true;   // ask for another frame after this draw
+            }
+            for (int i = 7; i >= 1; i--) {
+                float grow = i * 2.6f;
+                glow.setColor(acc);
+                glow.setAlpha((int) (amount * (0.10f + 0.05f * (7 - i)) * 255));
+                glow.setStrokeWidth(2.4f);
+                canvas.drawRoundRect(new RectF(rect.left - grow, rect.top - grow,
+                        rect.right + grow, rect.bottom + grow), 8 + grow, 8 + grow, glow);
+            }
+        }
 
         // Radiant glow behind the frame — concentric accent rings, brightest at
         // the edge, fading outward (the neon themes: Futuristic / SynthWave).
