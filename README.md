@@ -179,10 +179,24 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
   to nothing says so instead of doing nothing. Needs Trellis ≥ 0.87.0 for
   `GET /api/cards/{cid}`.
 - **Capture** — the **+** button in a basket adds a **note**, a **camera photo**,
-  or a **picked image** as a card in that node. (Read + capture; other edits are
-  still done on the desktop.)
+  or a **picked image** as a card in that node.
+- **Editing (v0.27.0)** — the three edits worth making on a phone, each one call
+  to the desktop API, each addressed to the card itself:
+  - **A card's text.** Open a text or code card and tap **Edit**. You edit the
+    card's *source*, never the rendered form, and nothing is shown as changed
+    until the document says it changed — a failed save keeps you in the editor
+    with your text and names the error.
+  - **A checklist tick.** Lines are real checkboxes, each addressed by its
+    **stable item id** (desktop ≥ 0.90.0), so ticking survives a reorder. A tick
+    that fails to write springs back rather than lying.
+  - **`status::`** — from the reader's overflow menu: todo / doing / blocked /
+    done, or clear it. It edits the property **in place** on the one card, which
+    is the whole point of the model: a copied task card is a second task.
+
+  Deliberately not editable here: tables, sketches, and a card that **mirrors a
+  file** — the file owns that text, and the desktop refuses the edit too (409).
 - **Agenda and Kanban** (overflow menu) — the desktop task views, read-only. Each
-  row names the task's **full basket path** (`Super Weapon News › Open Items`),
+  row names the task's **full basket path** (`Newsletter › Open Items`),
   because basket names repeat across projects. **Filter by project** in either
   view's overflow menu narrows it to one; the two views remember their own choice,
   per server, so scoping the board doesn't narrow your agenda. Needs Trellis
@@ -190,7 +204,8 @@ and **SynthWave** (the outrun neon palette). Set in Settings → Appearance.
 - Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).
 - **Offline cache (read-only)** — every basket and image you open is cached on the
   phone, so when the LAN Trellis goes offline you can still read what you've
-  already viewed. An "⚠ Offline — cached copy" note appears under the title while
+  already viewed. Editing needs the host: an edit is written straight through,
+  never queued. An "⚠ Offline — cached copy" note appears under the title while
   serving the cache; the app returns to the live document (and refreshes the
   cache) automatically the moment the host is back. No sync — writes still need
   the desktop.

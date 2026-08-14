@@ -28,11 +28,18 @@ public class Card {
     public final List<List<Cell>> rows = new ArrayList<>();
     // sketch
     public final List<Stroke> strokes = new ArrayList<>();
+    /** The file this card mirrors, or empty. A mirrored body belongs to the
+     *  file: the desktop refuses to edit one (409), so the phone does not offer. */
+    public String source = "";
     // image (pixel data isn't exposed by the API yet — only name/count)
     public String imageName = "";
     public int imageCount;
 
     public static class Item {
+        /** Stable across reorders since desktop v0.90.0 — address the line by
+         *  this, never by its position, or ticking one after a drag ticks a
+         *  different task. */
+        public long id;
         public boolean done;
         public String text = "";
     }
@@ -67,6 +74,7 @@ public class Card {
     private static Card fromJson(JSONObject o) {
         Card c = new Card();
         c.id = o.optLong("id");
+        c.source = o.optString("source", "");
         c.title = o.optString("title", "");
         c.kind = o.optString("kind", "text");
         c.color = rgb(o.optJSONArray("color"));
@@ -94,6 +102,7 @@ public class Card {
                     JSONObject it = items.optJSONObject(i);
                     if (it == null) continue;
                     Item item = new Item();
+                    item.id = it.optLong("id");
                     item.done = it.optBoolean("done");
                     item.text = it.optString("text", "");
                     c.items.add(item);

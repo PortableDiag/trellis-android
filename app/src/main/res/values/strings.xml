@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">Trellis</string>
+
+    <!-- Editing (v0.27.0) -->
+    <string name="edit">Edit</string>
+    <string name="save">Save</string>
+    <string name="set_status">Set status…</string>
+    <string name="card_body_hint">Card text — Markdown</string>
+    <string name="saved">Saved</string>
+    <string name="save_failed">Not saved: %1$s</string>
+    <string name="status_cleared">Status removed</string>
+    <string name="clear_status">Clear status</string>
+    <string name="read_only_card">%1$s cards are read-only on the phone — edit on the desktop</string>
+    <string name="mirrored_card">This card mirrors a file, so its text belongs to the file</string>
+    <string name="discard_changes">Discard changes?</string>
+    <string name="discard">Discard</string>
+    <string name="keep_editing">Keep editing</string>
 </resources>

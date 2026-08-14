@@ -174,11 +174,28 @@ public class TrellisApi {
 
     /** POST a JSON body to a path and return the parsed response. */
     public JSONObject post(String path, JSONObject body) throws IOException, JSONException {
+        return send("POST", path, body);
+    }
+
+    /**
+     * PATCH a JSON body — how every card edit reaches the document.
+     *
+     * <p>Android's {@code HttpURLConnection} is OkHttp underneath and accepts
+     * PATCH; the desktop JDK's does not, which is worth knowing before this is
+     * copied into a tool that runs on one.
+     */
+    public JSONObject patch(String path, JSONObject body) throws IOException, JSONException {
+        return send("PATCH", path, body);
+    }
+
+    /** Send a JSON body by any method and return the parsed response. */
+    private JSONObject send(String method, String path, JSONObject body)
+            throws IOException, JSONException {
         HttpURLConnection c = (HttpURLConnection) new URL(base + path).openConnection();
         try {
             c.setConnectTimeout(4000);
             c.setReadTimeout(10000);
-            c.setRequestMethod("POST");
+            c.setRequestMethod(method);
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/json");
             if (key != null && !key.isEmpty()) {
@@ -193,6 +210,65 @@ public class TrellisApi {
                 throw new IOException("HTTP " + code + (resp.isEmpty() ? "" : ": " + resp));
             }
             return new JSONObject(resp);
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    /**
+     * Edit a card in place. The document is the authority: an edit that fails
+     * throws, so a caller never shows a change it did not make.
+     *
+     * <p>Unknown fields are refused with a 400 naming them (desktop v0.86.0), so
+     * a typo here is a visible error rather than an edit that quietly does
+     * nothing — which is exactly the failure this app used to have no way to
+     * notice.
+     */
+    public JSONObject patchCard(long node, long card, JSONObject fields)
+            throws IOException, JSONException {
+        return patch("/nodes/" + node + "/cards/" + card, fields);
+    }
+
+    /** Tick or untick one checklist line, addressed by its stable item id. */
+    public JSONObject setItemDone(long node, long card, long item, boolean done)
+            throws IOException, JSONException {
+        return post("/nodes/" + node + "/cards/" + card + "/items/" + item + "/done",
+                new JSONObject().put("done", done));
+    }
+
+    /**
+     * Set an inline {@code key:: value} property on a card — {@code status}
+     * being the one a phone actually wants to change.
+     *
+     * <p>One card is one task: this edits the card in place rather than creating
+     * a second one, which is the whole point of the property model.
+     */
+    public JSONObject setProperty(long node, long card, String key, String value)
+            throws IOException, JSONException {
+        return post("/nodes/" + node + "/cards/" + card + "/property",
+                new JSONObject().put("key", key).put("value", value));
+    }
+
+    /**
+     * Remove a property. Setting it to an empty string would leave the key
+     * behind with nothing after it — still a property, and still on the board.
+     */
+    public void deleteProperty(long node, long card, String key) throws IOException {
+        HttpURLConnection c = (HttpURLConnection)
+                new URL(base + "/nodes/" + node + "/cards/" + card + "/property?key=" + key)
+                        .openConnection();
+        try {
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(10000);
+            c.setRequestMethod("DELETE");
+            if (key != null && this.key != null && !this.key.isEmpty()) {
+                c.setRequestProperty("X-API-Key", this.key);
+            }
+            int code = c.getResponseCode();
+            String resp = readAll(code < 400 ? c.getInputStream() : c.getErrorStream());
+            if (code >= 400) {
+                throw new IOException("HTTP " + code + (resp.isEmpty() ? "" : ": " + resp));
+            }
         } finally {
             c.disconnect();
         }

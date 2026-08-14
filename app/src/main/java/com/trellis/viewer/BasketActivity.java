@@ -120,6 +120,11 @@ public class BasketActivity extends AppCompatActivity {
         final long focus = getIntent().getLongExtra(EXTRA_FOCUS_CARD, 0L);
         if (focus > 0) basket.focusCard(focus);
 
+        // An edit made in the reader changed the document, so the basket has to
+        // re-read it — the card's size and its properties can both have moved.
+        openReader = registerForActivityResult(
+                new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                r -> { if (r.getResultCode() == RESULT_OK) load(); });
         pickImage = registerForActivityResult(
                 new ActivityResultContracts.PickVisualMedia(), uri -> {
                     if (uri != null) uploadImage(uri, "Image");
@@ -234,6 +239,24 @@ public class BasketActivity extends AppCompatActivity {
         });
     }
 
+    /** Launches the card reader and reloads the basket if it edited anything. */
+    private androidx.activity.result.ActivityResultLauncher<Intent> openReader;
+
+    /** Checklist lines as {@code [{id,done,text}]} for the reader's checkboxes. */
+    private static String checklistJson(Card card) {
+        org.json.JSONArray arr = new org.json.JSONArray();
+        for (Card.Item it : card.items) {
+            try {
+                arr.put(new org.json.JSONObject()
+                        .put("id", it.id).put("done", it.done).put("text", it.text));
+            } catch (org.json.JSONException ignored) {
+                // A line that will not serialize is one line missing a checkbox,
+                // not a reader that fails to open.
+            }
+        }
+        return arr.toString();
+    }
+
     private void toast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
@@ -251,7 +274,18 @@ public class BasketActivity extends AppCompatActivity {
         i.putExtra(CardReaderActivity.EXTRA_TITLE, card.title);
         i.putExtra(CardReaderActivity.EXTRA_BODY, body);
         i.putExtra(CardReaderActivity.EXTRA_MONO, mono);
-        startActivity(i);
+        // What the reader needs to *edit* rather than only display: where the
+        // card lives, what kind it is, its own source text (not the rendering
+        // above), and its checklist lines with their stable ids.
+        i.putExtra(CardReaderActivity.EXTRA_NODE_ID, nodeId);
+        i.putExtra(CardReaderActivity.EXTRA_CARD_ID, card.id);
+        i.putExtra(CardReaderActivity.EXTRA_KIND, card.kind);
+        i.putExtra(CardReaderActivity.EXTRA_SOURCE_BODY, card.body);
+        i.putExtra(CardReaderActivity.EXTRA_MIRRORED, !card.source.isEmpty());
+        if ("checklist".equals(card.kind)) {
+            i.putExtra(CardReaderActivity.EXTRA_ITEMS, checklistJson(card));
+        }
+        openReader.launch(i);
     }
 
     /** A checklist card as a markdown bullet list with checkbox glyphs. */

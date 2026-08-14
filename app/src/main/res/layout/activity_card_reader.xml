@@ -21,20 +21,57 @@
         android:layout_height="match_parent"
         android:fillViewport="true">
 
-        <HorizontalScrollView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fillViewport="true">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/body"
-                android:layout_width="wrap_content"
+            <!-- Read mode. A wide table pans instead of reflowing, which is why
+                 the body keeps its own horizontal scroller. -->
+            <HorizontalScrollView
+                android:id="@+id/body_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fillViewport="true">
+
+                <TextView
+                    android:id="@+id/body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:lineSpacingMultiplier="1.15"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textIsSelectable="true"/>
+            </HorizontalScrollView>
+
+            <!-- Checklist: real checkboxes, because ticking one is the edit a
+                 phone is actually good for. -->
+            <LinearLayout
+                android:id="@+id/checklist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="16dp"
+                android:visibility="gone"/>
+
+            <!-- Edit mode: the card's own source, never the rendered form. -->
+            <EditText
+                android:id="@+id/editor"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="16dp"
-                android:lineSpacingMultiplier="1.15"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textCapSentences"
+                android:minLines="8"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorOnSurface"
-                android:textIsSelectable="true"/>
-        </HorizontalScrollView>
+                android:importantForAutofill="no"
+                android:hint="@string/card_body_hint"
+                android:visibility="gone"/>
+        </LinearLayout>
     </ScrollView>
 </LinearLayout>
