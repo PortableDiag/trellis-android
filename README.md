@@ -247,6 +247,21 @@ that has not chosen.
   per server, so scoping the board doesn't narrow your agenda. Needs Trellis
   ≥ 0.71.0 for the project fields.
 - Live updates via the desktop's `/api/wait` long-poll (Trellis ≥ 0.30.0).
+- **Notifications (v0.34.0)** — **Settings → Notifications**, both off by
+  default: what is **overdue or due today**, and when an **agent changes
+  something**. Two channels, so Android can silence one without losing the
+  other, and a tap lands on the Agenda or on the changed card.
+
+  The honest limits, stated in Settings rather than discovered. It checks about
+  **every fifteen minutes** (Android's floor for periodic work) and only the
+  **workstation you have selected** — the others are different documents, and
+  checking them all turns one notification into N. **Nothing arrives when the
+  phone can't reach the host**: Trellis is a document on your LAN, not a service,
+  so off the network the check is a quiet no-op rather than an hourly complaint.
+  An unchanged digest is not repeated, and nothing due sends nothing.
+
+  **Check now** runs it immediately — a periodic job you can't trigger is a
+  feature you can't confirm.
 - **Offline cache (read-only)** — every basket and image you open is cached on the
   phone, so when the LAN Trellis goes offline you can still read what you've
   already viewed. Editing needs the host: an edit is written straight through,

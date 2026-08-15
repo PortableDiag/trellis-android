@@ -150,6 +150,15 @@ public class TrellisApi {
         return new JSONObject(getCached("/tasks"));
     }
 
+    /**
+     * GET /changes — what changed since {@code since}, not merely that something
+     * did. The response carries an {@code epoch} that is fresh per desktop run:
+     * a stored {@code seq} from a different epoch means nothing.
+     */
+    public JSONObject changes(long since) throws IOException, JSONException {
+        return new JSONObject(get("/changes?since=" + since));
+    }
+
     /** GET /tags — every {@code #tag} in the document with its card count. */
     public JSONObject tags() throws IOException, JSONException {
         return new JSONObject(getCached("/tags"));

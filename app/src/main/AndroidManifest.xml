@@ -3,6 +3,10 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Runtime-requested on API 33+, and only when a notification toggle is
+         turned on: asking at first launch for a feature that is off by default
+         is how an app trains you to say no. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:name=".TrellisApp"

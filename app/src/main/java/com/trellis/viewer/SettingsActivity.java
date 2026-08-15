@@ -78,6 +78,7 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.test_button).setOnClickListener(v -> testConnection());
 
         bindLock();
+        bindNotifications();
 
         // Appearance
         MaterialSwitch darkSwitch = findViewById(R.id.dark_switch);
@@ -136,6 +137,107 @@ public class SettingsActivity extends AppCompatActivity {
      * so the switch is disabled and says why rather than offering a lock that
      * would always open.
      */
+    /**
+     * The notification toggles, and the permission they need.
+     *
+     * <p>Permission is asked for **when a toggle is turned on**, never at first
+     * launch: asking for something the app is not yet doing is how an app teaches
+     * you to refuse. If it is refused the toggle goes back off rather than
+     * staying on and quietly delivering nothing.
+     */
+    private void bindNotifications() {
+        MaterialSwitch digest = findViewById(R.id.notify_digest_switch);
+        MaterialSwitch agent = findViewById(R.id.notify_agent_switch);
+        TextView note = findViewById(R.id.notify_note);
+        digest.setChecked(com.trellis.viewer.util.Notifier.digestEnabled(this));
+        agent.setChecked(com.trellis.viewer.util.Notifier.agentEnabled(this));
+        updateNotifyNote(note);
+
+        findViewById(R.id.notify_check_button).setOnClickListener(v -> {
+            // On demand, and forced past the "same as last time" memo, because a
+            // check you asked for should say something even when nothing moved.
+            new Thread(() -> {
+                String said;
+                try {
+                    said = com.trellis.viewer.net.NotifyWorker.check(this, true);
+                } catch (Exception e) {
+                    said = "Couldn't reach " + com.trellis.viewer.net.ServerPrefs.activeLabel(this)
+                            + ": " + (e.getMessage() == null ? e.toString() : e.getMessage());
+                }
+                final String msg = said;
+                runOnUiThread(() ->
+                        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show());
+            }).start();
+        });
+
+        digest.setOnCheckedChangeListener((v, on) -> {
+            com.trellis.viewer.util.Notifier.setDigestEnabled(this, on);
+            // Say it again next time rather than staying quiet because the last
+            // digest happened to be identical.
+            com.trellis.viewer.util.Notifier.forgetDigest(this);
+            if (on) askNotificationPermission();
+            com.trellis.viewer.net.NotifyWorker.sync(this);
+            updateNotifyNote(note);
+        });
+        agent.setOnCheckedChangeListener((v, on) -> {
+            com.trellis.viewer.util.Notifier.setAgentEnabled(this, on);
+            if (on) askNotificationPermission();
+            com.trellis.viewer.net.NotifyWorker.sync(this);
+            updateNotifyNote(note);
+        });
+    }
+
+    private void updateNotifyNote(TextView note) {
+        final boolean any = com.trellis.viewer.util.Notifier.digestEnabled(this)
+                || com.trellis.viewer.util.Notifier.agentEnabled(this);
+        if (!any) {
+            note.setText("");
+            return;
+        }
+        final boolean allowed = androidx.core.app.NotificationManagerCompat.from(this)
+                .areNotificationsEnabled();
+        String who = com.trellis.viewer.net.ServerPrefs.active(this) == null
+                ? "no workstation selected"
+                : "watching " + com.trellis.viewer.net.ServerPrefs.activeLabel(this);
+        note.setText(allowed
+                ? who + "."
+                : who + ". Notifications are blocked for Trellis in Android settings,"
+                        + " so nothing will arrive until you allow them.");
+    }
+
+    private void askNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return;
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 91);
+    }
+
+    @Override public void onRequestPermissionsResult(int code, @androidx.annotation.NonNull String[] perms,
+                                                     @androidx.annotation.NonNull int[] granted) {
+        super.onRequestPermissionsResult(code, perms, granted);
+        if (code != 91) return;
+        final boolean ok = granted.length > 0
+                && granted[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (!ok) {
+            // A toggle that is on while nothing can be delivered is a lie the
+            // app tells itself; put it back.
+            com.trellis.viewer.util.Notifier.setDigestEnabled(this, false);
+            com.trellis.viewer.util.Notifier.setAgentEnabled(this, false);
+            com.trellis.viewer.net.NotifyWorker.sync(this);
+            MaterialSwitch d = findViewById(R.id.notify_digest_switch);
+            MaterialSwitch a = findViewById(R.id.notify_agent_switch);
+            if (d != null) d.setChecked(false);
+            if (a != null) a.setChecked(false);
+            android.widget.Toast.makeText(this,
+                    "Without notification permission there is nowhere to deliver them.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+        TextView note = findViewById(R.id.notify_note);
+        if (note != null) updateNotifyNote(note);
+    }
+
     private void bindLock() {
         MaterialSwitch depthSwitch = findViewById(R.id.depth_switch);
         depthSwitch.setChecked(com.trellis.viewer.util.Hypercube.depthMode(this));

@@ -17,8 +17,8 @@ android {
         applicationId "com.trellis.viewer"
         minSdk 26
         targetSdk 35
-        versionCode 39
-        versionName "0.33.0"
+        versionCode 40
+        versionName "0.34.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -92,6 +92,11 @@ dependencies {
     // App lock. BiometricPrompt with the device credential as the fallback, so a
     // phone with no enrolled fingerprint still has a way in.
     implementation 'androidx.biometric:biometric:1.1.0'
+    // The periodic check behind notifications. WorkManager rather than a
+    // foreground service: this is a fifteen-minute digest, not a live feed, and
+    // a persistent notification saying "Trellis is watching" would cost more
+    // attention than the notifications are worth.
+    implementation 'androidx.work:work-runtime:2.9.1'
     // CommonMark rendering for text cards (matches the desktop's markdown).
     implementation 'io.noties.markwon:core:4.6.2'
     // GFM tables. `core` alone renders a markdown table as its literal pipes and

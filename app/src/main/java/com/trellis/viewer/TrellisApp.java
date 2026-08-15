@@ -21,6 +21,11 @@ public class TrellisApp extends Application {
 
     @Override public void onCreate() {
         super.onCreate();
+        // Re-assert the periodic check on every start. WorkManager persists its
+        // own queue, but a reinstall does not — and a toggle that is on while
+        // nothing is scheduled is the failure nobody would ever notice.
+        com.trellis.viewer.util.Notifier.ensureChannels(this);
+        com.trellis.viewer.net.NotifyWorker.sync(this);
         ThemePrefs.applyNightMode(this);
         registerActivityLifecycleCallbacks(new LockCallbacks());
         // Clear camera scratch files left by an older build, a crash, or a
