@@ -194,6 +194,17 @@ public class MainActivity extends AppCompatActivity {
                     d.dismiss();
                     if (which == ServerPrefs.activeIndex(this)) return;
                     ServerPrefs.setActive(this, which);
+                    // Each workstation keeps its own accent — that is the whole
+                    // point of a per-server colour — so switching one can change
+                    // the theme. The theme is baked at onCreate and this screen
+                    // never left the resumed state, so nothing would re-apply it:
+                    // the tree kept the previous workstation's colours until you
+                    // opened a basket and came back, which is what finally ran
+                    // onResume's check. Recreate here instead.
+                    if (!com.trellis.viewer.util.ThemePrefs.accent(this).equals(appliedAccent)) {
+                        recreate();
+                        return;
+                    }
                     // Everything on screen belongs to the previous document.
                     waiter.stop();
                     roots.clear();

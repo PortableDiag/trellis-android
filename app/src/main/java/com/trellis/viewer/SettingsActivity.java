@@ -37,6 +37,11 @@ import java.util.concurrent.Executors;
  */
 public class SettingsActivity extends AppCompatActivity {
 
+    /** The accent this screen was themed with. Switching workstation here can
+     *  change it, because each workstation keeps its own. */
+    private String appliedAccent;
+
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler ui = new Handler(Looper.getMainLooper());
 
@@ -48,6 +53,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         setTheme(ThemePrefs.themeRes(this));
+        appliedAccent = ThemePrefs.accent(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
         // Android 15 lays every app out edge-to-edge; keep our content
@@ -361,9 +367,19 @@ public class SettingsActivity extends AppCompatActivity {
                 .setSingleChoiceItems(labels, editing, (d, which) -> {
                     editing = which;
                     ServerPrefs.setActive(this, which);
+                    d.dismiss();
+                    // A workstation carries its own accent, so switching one can
+                    // change the theme — and this screen is already created, so
+                    // nothing re-applies it. Without this, Settings goes on
+                    // showing the previous workstation's colours (and its Theme
+                    // radio keeps the previous selection checked) while claiming
+                    // to be editing the new one.
+                    if (!ThemePrefs.accent(this).equals(appliedAccent)) {
+                        recreate();
+                        return;
+                    }
                     bindFields();
                     testResult.setText("");
-                    d.dismiss();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
