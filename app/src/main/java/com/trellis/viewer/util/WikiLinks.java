@@ -47,19 +47,70 @@ public final class WikiLinks {
      * <p>Mirrors {@code model::wikilinks_to_md}: the target is trimmed, an empty
      * target is not a link (the text stays verbatim), and a display half that is
      * blank after trimming falls back to the target.
+     *
+     * <p><b>Code is skipped</b>, which the mirror was missing on both sides. A card
+     * that <em>documents</em> the syntax had its example rewritten, so
+     * {@code `[[Title]]`} rendered on this canvas as
+     * {@code `[[Title]](trellis:Title)`} — the URL leaking into text meant to read
+     * as literal source. It cannot even be a link inside a code span: the Markdown
+     * renderer prints the span verbatim, so rewriting it can only mangle it.
      */
     public static String toMarkdown(String text) {
         if (text == null) return null;
-        final int n = text.length();
         // No "[[" at all is the common case — don't rebuild the string for it.
         if (text.indexOf("[[") < 0) return text;
-        final StringBuilder out = new StringBuilder(n);
+        final StringBuilder out = new StringBuilder(text.length());
+        boolean inFence = false;
+        int at = 0;
+        while (at <= text.length()) {
+            int nl = text.indexOf('\n', at);
+            final boolean last = nl < 0;
+            final String line = last ? text.substring(at) : text.substring(at, nl);
+            if (isCodeFence(line)) {
+                inFence = !inFence;
+                out.append(line);
+            } else if (inFence) {
+                out.append(line);
+            } else {
+                appendLine(out, line);
+            }
+            if (last) break;
+            out.append('\n');
+            at = nl + 1;
+        }
+        return out.toString();
+    }
+
+    /** Does this line open or close a fenced block? — {@code model::is_code_fence}. */
+    private static boolean isCodeFence(String line) {
+        final String t = line.trim();
+        return t.startsWith("```") || t.startsWith("~~~");
+    }
+
+    /**
+     * Is offset {@code pos} inside an inline {@code `code span`} on this line?
+     *
+     * <p>Counts the backticks before it: an odd number means a span is open. The
+     * same cheap test {@code model::in_code_span} makes, and for the same reason —
+     * the case being caught is prose quoting the syntax, which is always written
+     * between backticks.
+     */
+    private static boolean inCodeSpan(String line, int pos) {
+        int n = 0;
+        for (int i = 0; i < pos; i++) if (line.charAt(i) == '`') n++;
+        return (n & 1) == 1;
+    }
+
+    /** {@link #toMarkdown} for one line, leaving inline code spans alone. */
+    private static void appendLine(StringBuilder out, String line) {
+        final int n = line.length();
         int i = 0;
         while (i < n) {
-            if (i + 1 < n && text.charAt(i) == '[' && text.charAt(i + 1) == '[') {
-                final int end = text.indexOf("]]", i + 2);
+            if (i + 1 < n && line.charAt(i) == '[' && line.charAt(i + 1) == '['
+                    && !inCodeSpan(line, i)) {
+                final int end = line.indexOf("]]", i + 2);
                 if (end >= 0) {
-                    final String inner = text.substring(i + 2, end);
+                    final String inner = line.substring(i + 2, end);
                     final int bar = inner.indexOf('|');
                     final String target = (bar < 0 ? inner : inner.substring(0, bar)).trim();
                     String display = bar < 0 ? target : inner.substring(bar + 1).trim();
@@ -72,10 +123,9 @@ public final class WikiLinks {
                     }
                 }
             }
-            out.append(text.charAt(i));
+            out.append(line.charAt(i));
             i++;
         }
-        return out.toString();
     }
 
     /**
@@ -147,6 +197,20 @@ public final class WikiLinks {
      * and reports what it could not find rather than failing silently.
      */
     public static void follow(Activity activity, String url) {
+        followChecked(activity, url, null);
+    }
+
+    /**
+     * {@link #follow}, with the document the link claims to belong to.
+     *
+     * <p>{@code wantDoc} comes from a link's {@code ?doc=} — the desktop's
+     * {@code link_verified} form. When it is present it is <b>checked</b>: card ids
+     * repeat across documents, so following a link against the wrong workstation
+     * does not fail, it silently opens a different real card. Absent (an ordinary
+     * {@code [[#id]]} tapped inside a card, which is by definition in the document
+     * already open), there is nothing to check and no request is made.
+     */
+    public static void followChecked(Activity activity, String url, String wantDoc) {
         final String target = decode(url.substring(SCHEME.length())).trim();
         if (target.isEmpty()) return;
         final String base = ServerPrefs.baseUrl(activity);
@@ -156,11 +220,12 @@ public final class WikiLinks {
             Dest dest = null;
             String error = null;
             try {
-                dest = resolve(api, target);
-                if (dest == null) {
-                    error = target.startsWith("#")
-                            ? "No card " + target + " in this document"
-                            : "No node named “" + target + "” to link to";
+                final String mismatch = docMismatch(api, wantDoc);
+                if (mismatch != null) {
+                    error = mismatch;
+                } else {
+                    dest = resolve(api, target);
+                    if (dest == null) error = notFound(target);
                 }
             } catch (Exception e) {
                 error = "Could not follow this link: " + e.getMessage();
@@ -187,13 +252,53 @@ public final class WikiLinks {
     }
 
     /**
-     * Follow a {@code trellis://<port>/card/<id>} link that arrived as an Intent.
+     * The port a {@code trellis://} link names, or {@code -1} if it names none.
      *
-     * <p>The port is the address — one Trellis instance serves one document — so
-     * the port in the link picks which configured server to ask. If none of the
-     * saved workstations uses that port we say so rather than guessing: asking a
-     * different document for that id would resolve, because **card ids repeat
-     * across documents**, and land on a real card that is not the one meant.
+     * <p><b>Two authority forms, both live.</b> The desktop minted
+     * {@code trellis://<port>/card/<id>} until v0.110.2 and
+     * {@code trellis://127.0.0.1:<port>/card/<id>} since — because a bare integer
+     * sits in the URL's <em>host</em> position and is a legal IPv4 address, so KDE
+     * normalised {@code 7374} to {@code 0.0.28.206} and the desktop's own handler
+     * then rejected it. Links in the older form are already written into cards and
+     * session reports, so both are accepted here for the same reason the desktop
+     * accepts both: a link is a durable artifact.
+     *
+     * <p>This is what was broken. The old code read the authority as an integer,
+     * so every link the desktop has minted since v0.110.2 — the only form it mints
+     * now — failed on the phone with "that link has no port".
+     */
+    static int linkPort(android.net.Uri uri) {
+        final int p = uri.getPort();
+        if (p > 0) return p;                       // host:port — the current form
+        final String authority = uri.getAuthority();
+        if (authority == null) return -1;
+        try {
+            return Integer.parseInt(authority.trim());   // legacy bare-port form
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /**
+     * Follow a {@code trellis://} link that arrived as an Intent.
+     *
+     * <p><b>The port picks the document</b> — one Trellis instance serves one
+     * document, so the port in the link is which workstation to ask. Where a host
+     * is present and matches a configured one, that wins: two workstations can
+     * both serve 7374, and port alone would then be a coin toss. If nothing
+     * matches we say so rather than guessing, because <b>card ids repeat across
+     * documents</b> — asking the wrong one resolves, and lands on a real card that
+     * is not the one meant.
+     *
+     * <p><b>{@code ?doc=} is what actually disambiguates</b>, and it is used to
+     * <em>choose</em> rather than merely to check. Every link the desktop mints
+     * says {@code 127.0.0.1} — it is describing itself, on its own machine — so the
+     * host half can never tell two workstations apart, and the document name is the
+     * only thing in the link that identifies which one is meant. Where several
+     * configured workstations share the port, each is asked what it is serving and
+     * the one that matches wins; where the link names a document nobody here
+     * serves, it is refused rather than followed to a real card in the wrong
+     * document.
      *
      * @return false if the link was not one of ours, so the caller can carry on.
      */
@@ -201,38 +306,120 @@ public final class WikiLinks {
         if (uri == null) return false;
         final String scheme = uri.getScheme();
         if (!"trellis".equals(scheme) && !"hypercube".equals(scheme)) return false;
-        // trellis://7374/card/1391 → authority "7374", path "/card/1391"
-        final int port;
-        try {
-            port = Integer.parseInt(uri.getAuthority() == null ? "" : uri.getAuthority());
-        } catch (NumberFormatException e) {
+        final int port = linkPort(uri);
+        if (port < 0) {
             Toast.makeText(activity, "That link has no port: " + uri, Toast.LENGTH_LONG).show();
             return true;
         }
         final java.util.List<String> parts = uri.getPathSegments();
         if (parts.size() != 2) {
-            Toast.makeText(activity, "Link should be …/card/<id> or …/node/<id>", Toast.LENGTH_LONG).show();
+            Toast.makeText(activity,
+                    "Link should be …/card/<id>, …/node/<id> or …/group/<id>",
+                    Toast.LENGTH_LONG).show();
             return true;
         }
         final String kind = parts.get(0);
         final String id = parts.get(1);
+        // A group id is NOT a card id: they come from different counters, so the
+        // same number names both. Reading /group/146 as `#146` — which is what
+        // this did — opens a real card that has nothing to do with the group.
+        final String target;
+        if ("node".equals(kind)) {
+            target = id;
+        } else if ("card".equals(kind)) {
+            target = "#" + id;
+        } else if ("group".equals(kind)) {
+            target = "#g" + id;
+        } else {
+            Toast.makeText(activity,
+                    "Not something a link can open: “" + kind + "”",
+                    Toast.LENGTH_LONG).show();
+            return true;
+        }
+
+        // The host half, when the link carries one. A loopback address is the
+        // desktop talking about itself and says nothing about where the phone
+        // should look, so it is not matched against — and it is what every minted
+        // link carries, which is why `doc` below does the real work.
+        final String host = uri.getHost();
+        final boolean usefulHost = host != null && !host.isEmpty()
+                && !"127.0.0.1".equals(host) && !"localhost".equals(host)
+                && !"::1".equals(host);
 
         final java.util.List<ServerPrefs.Server> servers = ServerPrefs.servers(activity);
-        int match = -1;
-        for (int i = 0; i < servers.size(); i++) {
-            if (servers.get(i).port == port) { match = i; break; }
+        final java.util.List<Integer> candidates = new java.util.ArrayList<>();
+        if (usefulHost) {
+            for (int i = 0; i < servers.size(); i++) {
+                final ServerPrefs.Server s = servers.get(i);
+                if (s.port == port && host.equalsIgnoreCase(s.host)) candidates.add(i);
+            }
         }
-        if (match < 0) {
+        if (candidates.isEmpty()) {
+            for (int i = 0; i < servers.size(); i++) {
+                if (servers.get(i).port == port) candidates.add(i);
+            }
+        }
+        if (candidates.isEmpty()) {
             Toast.makeText(activity,
                     "No workstation here uses port " + port + " — add it in Settings",
                     Toast.LENGTH_LONG).show();
             return true;
         }
-        // Point the app at that document first; everything below reads the
-        // active server.
-        ServerPrefs.setActive(activity, match);
-        follow(activity, SCHEME + encode(("node".equals(kind) ? "" : "#") + id));
+        chooseThenFollow(activity, candidates, SCHEME + encode(target),
+                uri.getQueryParameter("doc"));
         return true;
+    }
+
+    /**
+     * Pick which configured workstation the link meant, then go there.
+     *
+     * <p>Choosing can need the network — asking a server what document it is
+     * serving — so all of it runs off the main thread. One candidate needs no
+     * question asked; several are asked in order and the first whose document
+     * matches wins.
+     */
+    private static void chooseThenFollow(Activity activity, java.util.List<Integer> candidates,
+                                         String url, String wantDoc) {
+        final java.util.List<ServerPrefs.Server> servers = ServerPrefs.servers(activity);
+        final String want = wantDoc == null ? "" : wantDoc.trim();
+        if (candidates.size() == 1 || want.isEmpty()) {
+            // Nothing to choose between, or nothing in the link to choose by. The
+            // document check still runs inside followChecked for the single case,
+            // so a link for another document is refused rather than followed.
+            ServerPrefs.setActive(activity, candidates.get(0));
+            followChecked(activity, url, wantDoc);
+            return;
+        }
+        IO.execute(() -> {
+            int chosen = -1;
+            for (int idx : candidates) {
+                final ServerPrefs.Server s = servers.get(idx);
+                try {
+                    final String doc = new TrellisApi(s.baseUrl(), s.key, activity)
+                            .instance().optString("document", "");
+                    if (want.equalsIgnoreCase(doc)) { chosen = idx; break; }
+                } catch (Exception ignored) {
+                    // Unreachable or not answering: it cannot be shown to be the
+                    // one meant, so it is simply not chosen. Trying the next is
+                    // the point of asking each.
+                }
+            }
+            final int pick = chosen;
+            UI.post(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                if (pick < 0) {
+                    Toast.makeText(activity,
+                            "That link is for " + want + ", and no workstation here on port "
+                                    + servers.get(candidates.get(0)).port + " is serving it",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                ServerPrefs.setActive(activity, pick);
+                // The document is settled by construction now, so re-checking it
+                // would be a second request for an answer already in hand.
+                followChecked(activity, url, null);
+            });
+        });
     }
 
 
@@ -320,6 +507,34 @@ public final class WikiLinks {
         return out;
     }
 
+    /** What to say when a target resolved to nothing — the three id spaces differ. */
+    private static String notFound(String target) {
+        if (target.startsWith("#g")) return "No group " + target.substring(1) + " in this document";
+        if (target.startsWith("#")) return "No card " + target + " in this document";
+        return "No node named “" + target + "” to link to";
+    }
+
+    /**
+     * Null when the link may be followed; the refusal to show when it may not.
+     *
+     * <p>A server that cannot be reached is <b>not</b> a mismatch: that is the
+     * offline case, and the resolve below reads through the cache. Only a server
+     * that answers, with a different document, refuses the link.
+     */
+    private static String docMismatch(TrellisApi api, String wantDoc) {
+        if (wantDoc == null || wantDoc.trim().isEmpty()) return null;
+        final String want = wantDoc.trim();
+        final String have;
+        try {
+            have = api.instance().optString("document", "");
+        } catch (Exception e) {
+            return null;
+        }
+        if (have.isEmpty() || have.equalsIgnoreCase(want)) return null;
+        return "That link is for " + want + ", but this workstation is serving "
+                + have + " — the same id is a different card there";
+    }
+
     /** Where a link points, once resolved. {@code card} is 0 for a basket link. */
     private static final class Dest {
         final long node;
@@ -333,6 +548,30 @@ public final class WikiLinks {
     }
 
     private static Dest resolve(TrellisApi api, String target) throws Exception {
+        // `#g146` names a GROUP, and has to be tested before `#` — group ids and
+        // card ids come from separate counters, so 146 names one of each and
+        // falling through to the card branch resolves to the wrong thing rather
+        // than to nothing. The desktop's Ctrl+O splits the two id spaces the same
+        // way, on the `g`.
+        if (target.startsWith("#g")) {
+            final long gid;
+            try {
+                gid = Long.parseLong(target.substring(2).trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+            final JSONObject o = api.group(gid);
+            if (o == null) return null;
+            // The phone draws no group container, so "reveal the group" is best
+            // served by landing on a card inside it — the nearest thing to the
+            // desktop's centre-and-flash. Its lowest-positioned member is the
+            // first in `cards`, which is the basket's own order. That list is
+            // nested inside `group`, not at the top level.
+            final JSONObject g = o.optJSONObject("group");
+            final JSONArray members = g == null ? null : g.optJSONArray("cards");
+            final long card = members != null && members.length() > 0 ? members.optLong(0) : 0;
+            return new Dest(o.optLong("node"), card, o.optString("node_title", ""));
+        }
         if (target.startsWith("#")) {
             final String digits = target.substring(1).trim();
             final long id;

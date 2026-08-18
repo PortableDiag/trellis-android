@@ -128,6 +128,22 @@ public class TrellisApi {
         }
     }
 
+    /** GET /groups/{gid} — find a group from its id alone
+     *  ({@code {node, node_path, group, cards:[ids]}}). Group ids and card ids come
+     *  from different counters, so the same number can name both — which is exactly
+     *  why a {@code /group/<gid>} link must come through here and never be read as
+     *  {@code #<gid>}. Cached, like {@link #card}, so the link still follows with
+     *  the desktop unreachable. Null when no group has that id. */
+    public JSONObject group(long groupId) throws IOException, JSONException {
+        try {
+            return new JSONObject(getCached("/groups/" + groupId));
+        } catch (IOException e) {
+            final String m = e.getMessage();
+            if (m != null && m.startsWith("HTTP 404")) return null;
+            throw e;
+        }
+    }
+
     /** GET /instance — which document this server is serving
      *  ({@code {app,version,document,path,port,lan,nodes,unsaved_changes}}). One
      *  instance serves one document, so this is how a server identifies itself;
