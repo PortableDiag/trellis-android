@@ -137,6 +137,60 @@ public final class Md {
     }
 
     /**
+     * Make a single newline a line break, the way the desktop does.
+     *
+     * <p>CommonMark treats a lone {@code \n} as a <em>soft</em> break and renders
+     * it as a space, so consecutive lines are joined into one run of prose. That
+     * is correct CommonMark and wrong for this app: a card body is something
+     * somebody typed, and pressing Enter there means a new line. The desktop has
+     * always resolved it the same way — {@code model::hard_wrap} appends two
+     * trailing spaces (a CommonMark hard break) to every line before the renderer
+     * sees it — and this viewer never did, so the same note read as paragraphs
+     * here and as one block there.
+     *
+     * <p>Blank lines are left alone: they are the paragraph separator, and
+     * breaking them would double the gap. Fenced blocks are left alone because
+     * their content is code, where two trailing spaces are characters rather than
+     * markup.
+     *
+     * <p>Idempotent — a line that already ends in a hard break has it trimmed and
+     * re-added — so it is safe after {@link #flattenTables(String)}, which emits
+     * hard breaks of its own.
+     */
+    public static String hardWrap(String md) {
+        if (md == null || md.isEmpty()) return md;
+        final StringBuilder out = new StringBuilder(md.length() + 16);
+        final String[] lines = md.split("\n", -1);
+        boolean inFence = false;
+        for (int i = 0; i < lines.length; i++) {
+            final String line = lines[i];
+            final String trimmedStart = trimStart(line);
+            if (trimmedStart.startsWith("```") || trimmedStart.startsWith("~~~")) {
+                inFence = !inFence;
+                out.append(line);
+            } else if (inFence || trimEnd(line).isEmpty()) {
+                out.append(line);
+            } else {
+                out.append(trimEnd(line)).append("  ");
+            }
+            if (i < lines.length - 1) out.append('\n');
+        }
+        return out.toString();
+    }
+
+    private static String trimStart(String s) {
+        int i = 0;
+        while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
+        return s.substring(i);
+    }
+
+    private static String trimEnd(String s) {
+        int i = s.length();
+        while (i > 0 && Character.isWhitespace(s.charAt(i - 1))) i--;
+        return s.substring(0, i);
+    }
+
+    /**
      * The theme's outline colour, so table rules follow the active theme (Ocean,
      * Terminal, light, dark) instead of being one hard-coded grey that is
      * invisible against half of them.

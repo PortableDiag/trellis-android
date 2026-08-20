@@ -179,8 +179,11 @@ public class CardReaderActivity extends AppCompatActivity {
             int pad = Math.round(32 * getResources().getDisplayMetrics().density);
             bodyView.setMaxWidth(getResources().getDisplayMetrics().widthPixels - pad);
             // The API hands back the raw body, so [[…]] arrives as literal text;
-            // the desktop does this rewrite in its own renderer.
-            Md.create(this).setMarkdown(bodyView, WikiLinks.toMarkdown(body));
+            // the desktop does this rewrite in its own renderer. `hardWrap` is
+            // the other half of that: the desktop breaks single newlines before
+            // rendering, and without it the same note reads as separate lines
+            // there and as one joined block here.
+            Md.create(this).setMarkdown(bodyView, Md.hardWrap(WikiLinks.toMarkdown(body)));
             // Markwon styles a link whether or not anything can be tapped, so
             // without a movement method the links look right and do nothing —
             // which is indistinguishable from the bug being fixed here.

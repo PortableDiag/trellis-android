@@ -762,8 +762,12 @@ public class BasketView extends View {
             // opens the card — but an unrewritten link shows its brackets and
             // its target id, which is noise at thumbnail size and doesn't match
             // what the desktop draws.
-            rendered = markwon.toMarkdown(com.trellis.viewer.util.WikiLinks.toMarkdown(
-                    com.trellis.viewer.util.Md.flattenTables(c.body)));
+            // hardWrap last, so the thumbnail breaks lines the way the reader
+            // and the desktop do. It is idempotent, so the hard breaks
+            // flattenTables already emits for its rows survive unchanged.
+            rendered = markwon.toMarkdown(com.trellis.viewer.util.Md.hardWrap(
+                    com.trellis.viewer.util.WikiLinks.toMarkdown(
+                            com.trellis.viewer.util.Md.flattenTables(c.body))));
         }
         mdCache.put(c.id, rendered);
         return rendered;
