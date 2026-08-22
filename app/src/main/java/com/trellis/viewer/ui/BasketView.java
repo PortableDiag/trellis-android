@@ -111,6 +111,35 @@ public class BasketView extends View {
     /** Lazily-created CommonMark renderer + a per-card cache of rendered bodies. */
     private Markwon markwon;
     private final Map<Long, CharSequence> mdCache = new HashMap<>();
+    /**
+     * Laid-out body text, keyed by card.
+     *
+     * <p><b>Why this exists.</b> The markdown *parse* was already cached; the
+     * {@link StaticLayout} was not, so every frame re-measured and re-broke every
+     * visible card's text. On a workspace whose cards hold ten kilobytes of prose
+     * that is the entire frame budget: measured at <b>100% janky frames, 117ms
+     * median</b> while panning, with the GPU at 10ms — all of it CPU, on the main
+     * thread, redoing work whose inputs had not changed.
+     *
+     * <p>Keyed on width and mono as well as the text, because those are the only
+     * other things a layout depends on: a zoom does not change either (the canvas
+     * scales the result), so panning and zooming now reuse the same layout.
+     */
+    private final Map<Long, BodyLayout> layoutCache = new HashMap<>();
+
+    /** One card's laid-out body, with the inputs that produced it. */
+    private static final class BodyLayout {
+        final CharSequence text;
+        final int width;
+        final boolean mono;
+        final StaticLayout layout;
+        BodyLayout(CharSequence text, int width, boolean mono, StaticLayout layout) {
+            this.text = text; this.width = width; this.mono = mono; this.layout = layout;
+        }
+        boolean matches(CharSequence t, int w, boolean m) {
+            return mono == m && width == w && text == t;
+        }
+    }
 
     public BasketView(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
@@ -195,6 +224,7 @@ public class BasketView extends View {
         // the cards that share a depth — i.e. every card in a flat document.
         java.util.Collections.sort(cards, (a, b) -> Float.compare(a.z, b.z));
         mdCache.clear(); // bodies may have changed on a live update
+        layoutCache.clear();
         invalidate();
     }
 
@@ -364,6 +394,12 @@ public class BasketView extends View {
         // always had.
         for (Card c : inDrawOrder()) {
             final float s = depthScaleOf(c);
+            // Nothing off-screen is drawn. A basket is a canvas people pan around,
+            // so most of its cards are outside the viewport at any moment, and
+            // laying out a ten-kilobyte body nobody can see costs exactly as much
+            // as one they can. The margin is generous because a depth-projected
+            // card is not where its plain rectangle says it is.
+            if (!isVisible(c, s)) continue;
             canvas.save();
             if (s != 1f) {
                 final float fx = getWidth() / 2f, fy = getHeight() / 2f;
@@ -439,6 +475,33 @@ public class BasketView extends View {
     public void focusCard(long cardId) {
         focusPending = cardId;
         invalidate();
+    }
+
+    /**
+     * Is any part of this card inside the viewport?
+     *
+     * <p>Mirrors the transform {@code onDraw} is about to apply — depth scale
+     * about the view centre, then pan and zoom — because a cull that disagrees
+     * with the draw makes cards vanish at the edge of the screen, which is a far
+     * worse bug than the one it is fixing. The half-screen margin is the safety
+     * factor: it costs a few extra cards and removes any chance of popping.
+     */
+    private boolean isVisible(Card c, float depthScale) {
+        final float vw = getWidth(), vh = getHeight();
+        if (vw <= 0 || vh <= 0) return true;
+        float left = (c.x * scale + offsetX);
+        float top = (c.y * scale + offsetY);
+        float right = left + c.w * scale;
+        float bottom = top + c.h * scale;
+        if (depthScale != 1f) {
+            final float fx = vw / 2f, fy = vh / 2f;
+            left = fx + (left - fx) * depthScale;
+            right = fx + (right - fx) * depthScale;
+            top = fy + (top - fy) * depthScale;
+            bottom = fy + (bottom - fy) * depthScale;
+        }
+        final float mx = vw / 2f, my = vh / 2f;
+        return right >= -mx && left <= vw + mx && bottom >= -my && top <= vh + my;
     }
 
     private void drawCard(Canvas canvas, Card c) {
@@ -596,8 +659,8 @@ public class BasketView extends View {
             case "table":     drawTable(canvas, c, cx, cy, cw); break;
             case "sketch":    drawSketch(canvas, c); break;
             case "image":     drawImage(canvas, c, cx, cy, cw); break;
-            case "code":      drawBody(canvas, c.body, cx, cy, cw, true); break;
-            default:          drawBody(canvas, markdown(c), cx, cy, cw, false); break;
+            case "code":      drawBody(canvas, c.id, c.body, cx, cy, cw, true); break;
+            default:          drawBody(canvas, c.id, markdown(c), cx, cy, cw, false); break;
         }
         canvas.restore();
 
@@ -732,18 +795,28 @@ public class BasketView extends View {
         return p;
     }
 
-    private void drawBody(Canvas canvas, CharSequence text, float x, float y, float width, boolean mono) {
+    private void drawBody(Canvas canvas, long cardId, CharSequence text,
+                          float x, float y, float width, boolean mono) {
         if (text == null || text.length() == 0) return;
         bodyPaint.setTextSize(12f);
         bodyPaint.setColor(cOnSurfaceVariant);
         bodyPaint.setTypeface(mono ? Typeface.MONOSPACE : Typeface.DEFAULT);
-        StaticLayout layout = StaticLayout.Builder
-                .obtain(text, 0, text.length(), bodyPaint, (int) Math.max(1, width))
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                .build();
+        final int w = (int) Math.max(1, width);
+        // Reuse the layout unless something it actually depends on changed.
+        // Identity comparison on the text is deliberate and sufficient: the
+        // markdown cache hands back the same instance until the body changes, and
+        // an equals() on ten kilobytes every frame is the cost being avoided.
+        BodyLayout bl = layoutCache.get(cardId);
+        if (bl == null || !bl.matches(text, w, mono)) {
+            bl = new BodyLayout(text, w, mono, StaticLayout.Builder
+                    .obtain(text, 0, text.length(), bodyPaint, w)
+                    .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                    .build());
+            layoutCache.put(cardId, bl);
+        }
         canvas.save();
         canvas.translate(x, y);
-        layout.draw(canvas);
+        bl.layout.draw(canvas);
         canvas.restore();
     }
 
