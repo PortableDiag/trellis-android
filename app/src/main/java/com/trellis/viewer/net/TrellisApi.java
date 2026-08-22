@@ -238,6 +238,21 @@ public class TrellisApi {
         return send("PATCH", path, body);
     }
 
+    /**
+     * POST /cards/{cid}/say — append one message to a channel card.
+     *
+     * <p>Deliberately sends **no** {@code X-Agent} header. The server attributes
+     * a headerless write to {@code operator}, which is exactly right here: this
+     * is the person typing on their phone. An agent name would make the app
+     * impersonate whichever agent it named.
+     *
+     * <p>The card-addressed route rather than the node-addressed twin, because a
+     * link followed from a notification carries a card id and nothing else.
+     */
+    public JSONObject say(long cardId, String text) throws IOException, JSONException {
+        return post("/cards/" + cardId + "/say", new JSONObject().put("text", text));
+    }
+
     /** Send a JSON body by any method and return the parsed response. */
     private JSONObject send(String method, String path, JSONObject body)
             throws IOException, JSONException {

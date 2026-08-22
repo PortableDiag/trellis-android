@@ -9,6 +9,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -80,6 +81,9 @@ public class CardReaderActivity extends AppCompatActivity {
     private EditText editor;
     private View bodyScroll;
     private LinearLayout checklist;
+    private LinearLayout composeBar;
+    private EditText composeText;
+    private ImageButton composeSend;
     private boolean editing;
     /** Any edit at all — the basket reloads when this activity finishes. */
     private boolean changed;
@@ -135,12 +139,92 @@ public class CardReaderActivity extends AppCompatActivity {
         bodyScroll = findViewById(R.id.body_scroll);
         checklist = findViewById(R.id.checklist);
 
+        composeBar = findViewById(R.id.compose_bar);
+        composeText = findViewById(R.id.compose_text);
+        composeSend = findViewById(R.id.compose_send);
+        composeSend.setOnClickListener(v -> sendMessage());
+
         if ("checklist".equals(kind) && !items.isEmpty()) {
             bodyScroll.setVisibility(View.GONE);
             buildChecklist();
         } else {
             render(body);
         }
+        revealComposerIfChannel();
+    }
+
+    /**
+     * Show the compose bar when this card is a channel.
+     *
+     * <p>Asked of the server rather than passed in an extra, because this screen
+     * is reached from the basket, from search, and from a {@code trellis://}
+     * link tapped in a notification — and only the first of those has the card's
+     * JSON to hand. One GET on open is worth a composer that is never missing
+     * from the path that matters most: the link in the notification that told
+     * you an agent had replied.
+     */
+    private void revealComposerIfChannel() {
+        if (cardId < 0) return;
+        io.execute(() -> {
+            boolean isChannel = false;
+            try {
+                JSONObject o = api().card(cardId);
+                JSONObject card = o == null ? null : o.optJSONObject("card");
+                isChannel = card != null && card.optJSONObject("channel") != null;
+            } catch (Exception ignored) {
+                // Offline, or the card is gone. No composer, and no complaint:
+                // the body still reads from cache, which is the whole point of
+                // the cache.
+            }
+            final boolean show = isChannel;
+            ui.post(() -> composeBar.setVisibility(show && !editing ? View.VISIBLE : View.GONE));
+        });
+    }
+
+    /**
+     * Append what was typed as a message from the operator.
+     *
+     * <p>{@code say} appends on the server, which is why this is not a body
+     * edit: two people typing into one card would otherwise overwrite each
+     * other, and the message header and sequence number are the server's to
+     * write. Sent with no agent name, so it lands as {@code operator} — the
+     * person holding the phone.
+     */
+    private void sendMessage() {
+        final String text = composeText.getText().toString().trim();
+        if (text.isEmpty()) return;
+        composeSend.setEnabled(false);
+        io.execute(() -> {
+            String err = null;
+            String fresh = null;
+            try {
+                api().say(cardId, text);
+                // Re-read rather than append locally: the server wrote the
+                // header, the timestamp and the sequence number, and an agent
+                // may have said something while this was in flight.
+                JSONObject o = api().card(cardId);
+                JSONObject card = o == null ? null : o.optJSONObject("card");
+                if (card != null) fresh = card.optString("body", null);
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final String e2 = err;
+            final String body2 = fresh;
+            ui.post(() -> {
+                composeSend.setEnabled(true);
+                if (e2 != null) {
+                    toast(getString(R.string.channel_send_failed, e2));
+                    return;
+                }
+                // Cleared only on success, so a failed send keeps what was typed.
+                composeText.setText("");
+                changed = true;
+                if (body2 != null) {
+                    sourceBody = body2;
+                    render(body2);
+                }
+            });
+        });
     }
 
     private void parseItems(String json) {
@@ -304,6 +388,8 @@ public class CardReaderActivity extends AppCompatActivity {
         editor.setVisibility(View.VISIBLE);
         bodyScroll.setVisibility(View.GONE);
         checklist.setVisibility(View.GONE);
+        // Two ways to write to one card at once is a way to lose a message.
+        composeBar.setVisibility(View.GONE);
         editor.requestFocus();
         invalidateOptionsMenu();
     }
@@ -345,6 +431,7 @@ public class CardReaderActivity extends AppCompatActivity {
         bodyScroll.setVisibility(View.VISIBLE);
         render(text);
         invalidateOptionsMenu();
+        revealComposerIfChannel();
     }
 
     /**

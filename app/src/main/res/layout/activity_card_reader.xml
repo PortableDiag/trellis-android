@@ -16,9 +16,13 @@
             app:navigationIcon="@drawable/ic_back"/>
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- 0dp + weight, not match_parent: in a vertical LinearLayout a
+         match_parent child takes every remaining pixel, which left the compose
+         bar below with nothing and made it invisible even when shown. -->
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:fillViewport="true">
 
         <LinearLayout
@@ -74,4 +78,44 @@
                 android:visibility="gone"/>
         </LinearLayout>
     </ScrollView>
+
+    <!-- Channel compose bar. Hidden unless this card is a channel.
+         A channel exists so the operator can talk to an agent from the sofa,
+         and before this the only way to say anything from the phone was to
+         open the whole conversation in the editor and hand-append to the
+         bottom of it, below every header, without disturbing them. -->
+    <LinearLayout
+        android:id="@+id/compose_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:paddingStart="12dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:background="?attr/colorSurfaceContainer"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/compose_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="6"
+            android:inputType="textMultiLine|textCapSentences"
+            android:importantForAutofill="no"
+            android:hint="@string/channel_compose_hint"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="?attr/colorOnSurface"/>
+
+        <ImageButton
+            android:id="@+id/compose_send"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_send"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/channel_send"
+            app:tint="?attr/colorPrimary"/>
+    </LinearLayout>
 </LinearLayout>
