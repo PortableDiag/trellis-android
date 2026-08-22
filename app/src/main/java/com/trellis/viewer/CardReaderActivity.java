@@ -26,6 +26,7 @@ import com.trellis.viewer.util.Md;
 import com.trellis.viewer.util.WikiLinks;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -251,6 +252,9 @@ public class CardReaderActivity extends AppCompatActivity {
         menu.findItem(R.id.action_save).setVisible(editing);
         menu.findItem(R.id.action_status).setVisible(addressable && !editing);
         menu.findItem(R.id.action_card_backlinks).setVisible(cardId >= 0 && !editing);
+        // A channel is a field on an ordinary card, so any addressable card can
+        // become one. Hidden while editing, like everything else that writes.
+        menu.findItem(R.id.action_channel).setVisible(addressable && !editing);
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -274,6 +278,10 @@ public class CardReaderActivity extends AppCompatActivity {
         }
         if (id == R.id.action_status) {
             pickStatus();
+            return true;
+        }
+        if (id == R.id.action_channel) {
+            editChannel();
             return true;
         }
         if (id == android.R.id.home) {
@@ -385,6 +393,135 @@ public class CardReaderActivity extends AppCompatActivity {
     }
 
     /** Re-read this one card after a change the server made to its text. */
+    /**
+     * Make this card a channel, change who it is addressed to, or stop.
+     *
+     * <p>The desktop shipped channels with no way to create one except the HTTP
+     * API, and the phone is the half that matters most here: a channel exists so
+     * the operator can talk to an agent from the sofa, and having to reach for a
+     * terminal to create one defeats it.
+     *
+     * <p>The card is re-read first rather than assumed, because whether it is
+     * already a channel decides what the buttons say — and an agent may have
+     * changed it since this screen opened.
+     */
+    private void editChannel() {
+        io.execute(() -> {
+            String[] who = {""};
+            boolean[] primary = {false};
+            boolean[] existing = {false};
+            String err = null;
+            try {
+                JSONObject o = new JSONObject(api().get("/cards/" + cardId));
+                JSONObject card = o.optJSONObject("card");
+                JSONObject ch = card == null ? null : card.optJSONObject("channel");
+                if (ch != null) {
+                    existing[0] = true;
+                    primary[0] = ch.optBoolean("primary", false);
+                    JSONArray ps = ch.optJSONArray("participants");
+                    StringBuilder b = new StringBuilder();
+                    for (int i = 0; ps != null && i < ps.length(); i++) {
+                        if (b.length() > 0) b.append(", ");
+                        b.append(ps.optString(i));
+                    }
+                    who[0] = b.toString();
+                }
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final String e2 = err;
+            ui.post(() -> {
+                if (e2 != null) {
+                    toast(getString(R.string.save_failed, e2));
+                    return;
+                }
+                showChannelDialog(who[0], primary[0], existing[0]);
+            });
+        });
+    }
+
+    private void showChannelDialog(String who, boolean primary, boolean existing) {
+        View v = getLayoutInflater().inflate(R.layout.dialog_channel, null);
+        final EditText names = v.findViewById(R.id.channel_participants);
+        final CheckBox primaryBox = v.findViewById(R.id.channel_primary);
+        // A new channel is pre-filled with the two names it almost always has, so
+        // the common case is one tap.
+        names.setText(who.isEmpty() ? "claude, operator" : who);
+        primaryBox.setChecked(primary);
+
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle(R.string.channel_title)
+                .setView(v)
+                .setPositiveButton(existing ? R.string.channel_update : R.string.channel_make,
+                        (d, w) -> applyChannel(names.getText().toString(), primaryBox.isChecked()))
+                .setNegativeButton(android.R.string.cancel, null);
+        if (existing) {
+            b.setNeutralButton(R.string.channel_remove, (d, w) -> applyChannel(null, false));
+        }
+        b.show();
+    }
+
+    /** {@code names == null} removes the channel; the body is never touched. */
+    private void applyChannel(String names, boolean primary) {
+        JSONObject field = new JSONObject();
+        if (names != null) {
+            JSONArray arr = new JSONArray();
+            for (String n : names.split(",")) {
+                String t = n.trim();
+                if (t.isEmpty()) continue;
+                // The same rule the desktop and the X-Agent header hold: a name is
+                // written into a message header line, so one containing the
+                // separator could forge a message boundary.
+                if (t.length() > 40 || !t.matches("[A-Za-z0-9._-]+")) {
+                    toast(getString(R.string.channel_bad_name, t));
+                    return;
+                }
+                arr.put(t);
+            }
+            if (arr.length() == 0) {
+                toast(getString(R.string.channel_need_name));
+                return;
+            }
+            try {
+                field.put("channel", new JSONObject()
+                        .put("participants", arr)
+                        .put("primary", primary));
+            } catch (JSONException e) {
+                toast(msg(e));
+                return;
+            }
+        } else {
+            try {
+                // Explicit null clears it; an absent field would leave it alone.
+                field.put("channel", JSONObject.NULL);
+            } catch (JSONException e) {
+                toast(msg(e));
+                return;
+            }
+        }
+        final boolean removing = names == null;
+        io.execute(() -> {
+            String err = null;
+            try {
+                api().patchCard(nodeId, cardId, field);
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final String e2 = err;
+            ui.post(() -> {
+                if (e2 == null) {
+                    changed = true;
+                    toast(getString(removing ? R.string.channel_removed : R.string.channel_done));
+                    reload();
+                } else {
+                    // The one-primary-per-project refusal arrives here, naming the
+                    // card that already holds the flag.
+                    toast(getString(R.string.save_failed, e2));
+                }
+            });
+        });
+    }
+
     private void reload() {
         io.execute(() -> {
             String body = null;

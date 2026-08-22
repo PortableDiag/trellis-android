@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Channel dialog.
+
+  Built as a layout rather than assembled in code because it has a text field, a
+  checkbox and two paragraphs of explanation — the thing this feature most needs
+  is for someone to understand what they are turning on.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/channel_blurb"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/channel_blurb"
+        android:textAppearance="?attr/textAppearanceBodySmall"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/channel_who"
+        android:textAppearance="?attr/textAppearanceLabelLarge"/>
+
+    <EditText
+        android:id="@+id/channel_participants"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/channel_who_hint"
+        android:importantForAutofill="no"
+        android:inputType="text"
+        android:maxLines="1"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/channel_who_help"
+        android:textAppearance="?attr/textAppearanceBodySmall"/>
+
+    <CheckBox
+        android:id="@+id/channel_primary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/channel_primary"/>
+</LinearLayout>

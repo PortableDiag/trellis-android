@@ -18,6 +18,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_channel"
+        android:title="@string/channel"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_card_backlinks"
         android:title="@string/links_here"
         app:showAsAction="never"/>
