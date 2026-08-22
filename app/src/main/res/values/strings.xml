@@ -18,6 +18,10 @@
     <string name="channel_done">This card is a channel</string>
     <string name="channel_compose_hint">Message…</string>
     <string name="channel_send">Send</string>
+    <string name="page_render">The rendered page</string>
+    <string name="page_show_source">Show the HTML</string>
+    <string name="page_show_render">Show the page</string>
+    <string name="page_not_rendered">This page has not been rendered yet. Render it on the desktop.</string>
     <string name="channel_send_failed">Not sent: %1$s</string>
     <string name="channel_removed">No longer a channel</string>
     <string name="channel_need_name">Name at least one participant</string>

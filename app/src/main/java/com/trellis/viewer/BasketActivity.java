@@ -542,7 +542,12 @@ public class BasketActivity extends AppCompatActivity {
         io.execute(() -> {
             Bitmap bmp = null;
             try {
-                String b64 = api.imageBase64(nodeId, cardId, index);
+                // The reserved slot is a web page's rendered picture, which comes
+                // from a different route: the phone cannot render HTML and has no
+                // business running a browser, so it shows what the desktop made.
+                String b64 = index == com.trellis.viewer.ui.BasketView.HTML_INDEX
+                        ? api.htmlPng(cardId)
+                        : api.imageBase64(nodeId, cardId, index);
                 if (!b64.isEmpty()) {
                     byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
                     bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);

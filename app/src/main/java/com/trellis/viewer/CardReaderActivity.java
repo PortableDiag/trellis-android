@@ -84,6 +84,11 @@ public class CardReaderActivity extends AppCompatActivity {
     private LinearLayout composeBar;
     private EditText composeText;
     private ImageButton composeSend;
+    private android.widget.ImageView pageImage;
+    /** This card is a web page and a rendering exists to show. */
+    private boolean isPage;
+    /** Showing the picture rather than the HTML source. */
+    private boolean showingPage;
     private boolean editing;
     /** Any edit at all — the basket reloads when this activity finishes. */
     private boolean changed;
@@ -143,6 +148,7 @@ public class CardReaderActivity extends AppCompatActivity {
         composeText = findViewById(R.id.compose_text);
         composeSend = findViewById(R.id.compose_send);
         composeSend.setOnClickListener(v -> sendMessage());
+        pageImage = findViewById(R.id.page_image);
 
         if ("checklist".equals(kind) && !items.isEmpty()) {
             bodyScroll.setVisibility(View.GONE);
@@ -176,8 +182,43 @@ public class CardReaderActivity extends AppCompatActivity {
                 // the body still reads from cache, which is the whole point of
                 // the cache.
             }
+            // The same read answers the page question, so opening a card still
+            // costs one request rather than two.
+            boolean page = false;
+            android.graphics.Bitmap bmp = null;
+            try {
+                JSONObject o = api().card(cardId);
+                JSONObject card = o == null ? null : o.optJSONObject("card");
+                JSONObject html = card == null ? null : card.optJSONObject("html");
+                if (html != null) {
+                    page = true;
+                    if (html.optBoolean("rendered", false)) {
+                        String b64 = api().htmlPng(cardId);
+                        if (!b64.isEmpty()) {
+                            byte[] by = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                            bmp = android.graphics.BitmapFactory.decodeByteArray(by, 0, by.length);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+                // Offline: the source still reads from the body we were handed.
+            }
             final boolean show = isChannel;
-            ui.post(() -> composeBar.setVisibility(show && !editing ? View.VISIBLE : View.GONE));
+            final boolean isP = page;
+            final android.graphics.Bitmap shot = bmp;
+            ui.post(() -> {
+                composeBar.setVisibility(show && !editing ? View.VISIBLE : View.GONE);
+                isPage = isP;
+                if (isP) {
+                    if (shot != null) {
+                        pageImage.setImageBitmap(shot);
+                        showPage(true);
+                    } else {
+                        toast(getString(R.string.page_not_rendered));
+                    }
+                    invalidateOptionsMenu();
+                }
+            });
         });
     }
 
@@ -190,6 +231,23 @@ public class CardReaderActivity extends AppCompatActivity {
      * write. Sent with no agent name, so it lands as {@code operator} — the
      * person holding the phone.
      */
+    /** Show the rendered page, or the HTML that produced it. */
+    private void showPage(boolean page) {
+        showingPage = page;
+        pageImage.setVisibility(page ? View.VISIBLE : View.GONE);
+        bodyScroll.setVisibility(page ? View.GONE : View.VISIBLE);
+        if (!page) {
+            // **Verbatim, not markdown.** A page's source IS HTML, and Markwon
+            // renders HTML by consuming it — so running it through the markdown
+            // path produced a completely blank screen where the source should be.
+            // Same reason a code card is drawn mono: this is text to read, not
+            // markup to interpret.
+            mono = true;
+            render(sourceBody);
+        }
+        invalidateOptionsMenu();
+    }
+
     private void sendMessage() {
         final String text = composeText.getText().toString().trim();
         if (text.isEmpty()) return;
@@ -339,6 +397,10 @@ public class CardReaderActivity extends AppCompatActivity {
         // A channel is a field on an ordinary card, so any addressable card can
         // become one. Hidden while editing, like everything else that writes.
         menu.findItem(R.id.action_channel).setVisible(addressable && !editing);
+        // Only a web page can be shown two ways, and only once it has a picture.
+        MenuItem toggle = menu.findItem(R.id.action_page_toggle);
+        toggle.setVisible(isPage && !editing && pageImage.getDrawable() != null);
+        toggle.setTitle(showingPage ? R.string.page_show_source : R.string.page_show_render);
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -362,6 +424,10 @@ public class CardReaderActivity extends AppCompatActivity {
         }
         if (id == R.id.action_status) {
             pickStatus();
+            return true;
+        }
+        if (id == R.id.action_page_toggle) {
+            showPage(!showingPage);
             return true;
         }
         if (id == R.id.action_channel) {

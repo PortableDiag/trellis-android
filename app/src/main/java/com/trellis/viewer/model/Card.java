@@ -45,6 +45,18 @@ public class Card {
     // image (pixel data isn't exposed by the API yet — only name/count)
     public String imageName = "";
     public int imageCount;
+    // web page (v0.149.0): the body is HTML and the desktop renders it to a PNG.
+    // The bytes are NOT in the card JSON — they would be megabytes in a listing —
+    // so the picture is fetched separately from …/html/png.
+    public boolean isHtml;
+    /** "code", "split" or "render". */
+    public String htmlView = "split";
+    /** "none", "network" or "scripts" — what the page was allowed to do. */
+    public String htmlAllow = "none";
+    /** A picture exists to fetch. */
+    public boolean htmlRendered;
+    /** The body changed since the picture was taken. */
+    public boolean htmlStale;
 
     public static class Item {
         /** Stable across reorders since desktop v0.90.0 — address the line by
@@ -167,6 +179,16 @@ public class Card {
                 JSONArray names = o.optJSONArray("image_names");
                 c.imageCount = names == null ? (c.imageName.isEmpty() ? 0 : 1) : names.length();
                 break;
+        }
+        // A web page is a FIELD on an ordinary text card, so it is read outside
+        // the kind switch — the kind is still "text" and its body is the source.
+        JSONObject html = o.optJSONObject("html");
+        if (html != null) {
+            c.isHtml = true;
+            c.htmlView = html.optString("view", "split");
+            c.htmlAllow = html.optString("allow", "none");
+            c.htmlRendered = html.optBoolean("rendered", false);
+            c.htmlStale = html.optBoolean("stale", false);
         }
         return c;
     }

@@ -23,6 +23,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_page_toggle"
+        android:title="@string/page_show_source"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_card_backlinks"
         android:title="@string/links_here"
         app:showAsAction="never"/>

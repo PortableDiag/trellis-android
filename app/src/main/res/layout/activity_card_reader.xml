@@ -49,6 +49,17 @@
                     android:textIsSelectable="true"/>
             </HorizontalScrollView>
 
+            <!-- A web page's rendered picture. The phone has no browser and no
+                 business running one, so it shows what the desktop produced. -->
+            <ImageView
+                android:id="@+id/page_image"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitStart"
+                android:contentDescription="@string/page_render"
+                android:visibility="gone"/>
+
             <!-- Checklist: real checkboxes, because ticking one is the edit a
                  phone is actually good for. -->
             <LinearLayout

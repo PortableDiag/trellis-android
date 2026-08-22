@@ -239,6 +239,26 @@ public class TrellisApi {
     }
 
     /**
+     * GET /cards/{cid}/html/png — the rendered picture of a web-page card.
+     *
+     * <p>Separate from the card JSON on purpose: the PNG would be megabytes in
+     * every basket listing. Card-addressed, so it works from a link followed out
+     * of a notification, where no basket id is to hand.
+     *
+     * @return base64 PNG, or empty if the card has never been rendered.
+     */
+    public String htmlPng(long cardId) throws IOException, JSONException {
+        try {
+            return new JSONObject(get("/cards/" + cardId + "/html/png")).optString("base64", "");
+        } catch (IOException e) {
+            // 404 is "not rendered yet", which is a state, not a failure.
+            String m = e.getMessage();
+            if (m != null && m.startsWith("HTTP 404")) return "";
+            throw e;
+        }
+    }
+
+    /**
      * POST /cards/{cid}/say — append one message to a channel card.
      *
      * <p>Deliberately sends **no** {@code X-Agent} header. The server attributes

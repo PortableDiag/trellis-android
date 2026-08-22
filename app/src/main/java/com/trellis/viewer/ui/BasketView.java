@@ -68,6 +68,8 @@ public class BasketView extends View {
     private long focusPending = 0L, highlightCard = 0L, highlightUntil = 0L;
     private final TextPaint titlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint bodyPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    /** Cache slot for a web page's rendered picture — never a real image index. */
+    public static final int HTML_INDEX = -1;
 
     private final ScaleGestureDetector scaleDetector;
     private final GestureDetector gestureDetector;
@@ -654,6 +656,34 @@ public class BasketView extends View {
         canvas.clipRect(c.x, c.y + titleH, c.x + c.w, c.y + c.h);
         float cx = c.x + 6, cy = c.y + titleH + 4;
         float cw = c.w - 12;
+        // A web page draws its PICTURE, not its source. The card's kind is still
+        // "text" — the page is a field on it — so this is decided before the kind.
+        if (c.isHtml && !"code".equals(c.htmlView)) {
+            drawHtml(canvas, c, cx, cy, cw);
+            canvas.restore();
+            if (stickyTheme) {
+                int paper2 = isDefaultCardColor(c.color) ? STICKY_YELLOW : acc;
+                stroke.setColor(darken(paper2, 0.72f));
+                canvas.drawRoundRect(rect, 8, 8, stroke);
+            } else if (futuristicTheme) {
+                accent.setColor(acc);
+                canvas.drawPath(bevelDiag(rect, BEVEL), accent);
+            } else {
+                stroke.setColor(acc);
+                canvas.drawRoundRect(rect, 8, 8, stroke);
+            }
+            return;
+        }
+        // A page shown as source is drawn like code: verbatim and monospace.
+        // Through the markdown path it renders as nothing at all, because the
+        // renderer consumes the HTML it is being asked to display.
+        if (c.isHtml) {
+            drawBody(canvas, c.id, c.body, cx, cy, cw, true);
+            canvas.restore();
+            stroke.setColor(acc);
+            canvas.drawRoundRect(rect, 8, 8, stroke);
+            return;
+        }
         switch (c.kind) {
             case "checklist": drawChecklist(canvas, c, cx, cy, cw); break;
             case "table":     drawTable(canvas, c, cx, cy, cw); break;
@@ -939,6 +969,59 @@ public class BasketView extends View {
                 path.lineTo(c.x + p[0], c.y + 26 + p[1]);
             }
             canvas.drawPath(path, strokePaint);
+        }
+    }
+
+    /**
+     * A web-page card: the picture the desktop rendered.
+     *
+     * <p>The phone has no browser to render with and no business running one, so
+     * it shows what the desktop already produced. Fetched by the same loader as
+     * an image card's bitmaps, under a reserved index so a page and a card's own
+     * images can never collide in the cache.
+     */
+    private void drawHtml(Canvas canvas, Card c, float x, float y, float width) {
+        float availH = (c.y + c.h) - y - 4;
+        if (availH <= 2) return;
+        Map<Integer, Bitmap> loaded = images.get(c.id);
+        Bitmap bmp = loaded == null ? null : loaded.get(HTML_INDEX);
+
+        if (bmp == null) {
+            if (c.htmlRendered && imageLoader != null) {
+                String key = c.id + ":" + HTML_INDEX;
+                if (!requested.contains(key)) {
+                    requested.add(key);
+                    imageLoader.request(c.id, HTML_INDEX);
+                }
+            }
+            bodyPaint.setTextSize(12f);
+            bodyPaint.setColor(cOnSurfaceVariant);
+            bodyPaint.setTypeface(Typeface.DEFAULT);
+            canvas.drawText(
+                    c.htmlRendered ? "loading the page\u2026" : "not rendered yet",
+                    x, y + 14, bodyPaint);
+            return;
+        }
+
+        // Fit inside the card, keeping the page's aspect. A page is taller than
+        // it is wide more often than not, so height is the usual constraint.
+        float scaleF = Math.min(width / bmp.getWidth(), availH / bmp.getHeight());
+        float w = bmp.getWidth() * scaleF, h = bmp.getHeight() * scaleF;
+        // `fill` with no colour set acts as a plain bitmap paint, which is what
+        // the image card's own draw does — one paint object, not a second cached
+        // one that has to be kept in step with the theme.
+        canvas.drawBitmap(bmp, new Rect(0, 0, bmp.getWidth(), bmp.getHeight()),
+                new RectF(x, y, x + w, y + h), fill);
+
+        // Say when the picture is out of date with the body it came from, and
+        // when the page was allowed to run scripts — both are things you want to
+        // know without opening the card.
+        if (c.htmlStale || "scripts".equals(c.htmlAllow)) {
+            bodyPaint.setTextSize(10f);
+            bodyPaint.setTypeface(Typeface.DEFAULT);
+            bodyPaint.setColor(cOnSurfaceVariant);
+            String note = c.htmlStale ? "edited since rendered" : "scripts";
+            canvas.drawText(note, x, y + h + 11, bodyPaint);
         }
     }
 
