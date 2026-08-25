@@ -423,15 +423,19 @@ public class BasketActivity extends AppCompatActivity {
         final TrellisApi api = new TrellisApi(ServerPrefs.baseUrl(this), ServerPrefs.key(this), this);
         io.execute(() -> {
             List<Card> cards = null;
+            java.util.List<Card.Group> groups = new java.util.ArrayList<>();
             java.util.List<BasketView.Projected> projected = new java.util.ArrayList<>();
             String error = null;
             try {
-                cards = Card.parseCards(api.node(nodeId));
+                org.json.JSONObject nodeJson = api.node(nodeId);
+                cards = Card.parseCards(nodeJson);
+                groups = Card.parseGroups(nodeJson);
                 projected = loadProjections(api);
             } catch (Exception e) {
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
             final List<Card> result = cards;
+            final java.util.List<Card.Group> grps = groups;
             final java.util.List<BasketView.Projected> proj = projected;
             final String err = error;
             final boolean fromCache = api.lastFromCache();
@@ -448,6 +452,7 @@ public class BasketActivity extends AppCompatActivity {
                     basket.clearPendingImageRequests(); // retry any images that hadn't loaded
                     basket.setDepthMode(com.trellis.viewer.util.Hypercube.depthMode(this));
                     basket.setCards(result);
+                    basket.setGroups(grps);
                     basket.setProjected(proj);
                     setProjectionNote(proj.isEmpty() ? projectionNote : null);
                 }

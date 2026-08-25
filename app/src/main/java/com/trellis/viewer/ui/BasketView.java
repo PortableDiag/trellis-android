@@ -41,6 +41,7 @@ import java.util.Set;
 public class BasketView extends View {
 
     private final List<Card> cards = new ArrayList<>();
+    private final List<Card.Group> groups = new ArrayList<>();
     private float scale = 1f, offsetX = 0f, offsetY = 0f;
     /** Depth: cards projected through a camera rather than drawn flat. */
     private boolean depthMode;
@@ -63,6 +64,13 @@ public class BasketView extends View {
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** Outline drawn around a card arrived at by following a link. */
     private final Paint highlight = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Group containers and dock connectors get their own paints — the shared
+    // card paints are reconfigured per card, and state leaking between the two
+    // is exactly the kind of bug that only shows on the third basket you open.
+    private final Paint groupFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint groupStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint groupLabel = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dockLink = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** How long that outline takes to fade, in ms. */
     private static final long HIGHLIGHT_MS = 1600L;
     private long focusPending = 0L, highlightCard = 0L, highlightUntil = 0L;
@@ -176,6 +184,14 @@ public class BasketView extends View {
                 ctx, com.google.android.material.R.attr.colorPrimary, Color.CYAN));
         titlePaint.setColor(cOnSurface);
         titlePaint.setFakeBoldText(true);
+        groupStroke.setStyle(Paint.Style.STROKE);
+        groupStroke.setStrokeWidth(1.5f);
+        groupLabel.setTextSize(11f);
+        groupLabel.setColor(Color.rgb(240, 240, 240));
+        groupLabel.setFakeBoldText(true);
+        dockLink.setStyle(Paint.Style.STROKE);
+        dockLink.setStrokeWidth(1f);
+        dockLink.setColor((cOnSurfaceVariant & 0x00FFFFFF) | 0x6E000000);
         bodyPaint.setColor(cOnSurfaceVariant);
         // Markwon paints a link with the TextPaint's linkColor, which on a bare
         // TextPaint is 0 — fully transparent. A TextView supplies one from the
@@ -227,6 +243,13 @@ public class BasketView extends View {
         java.util.Collections.sort(cards, (a, b) -> Float.compare(a.z, b.z));
         mdCache.clear(); // bodies may have changed on a live update
         layoutCache.clear();
+        invalidate();
+    }
+
+    /** Group containers to draw behind their member cards, like the desktop. */
+    public void setGroups(List<Card.Group> newGroups) {
+        groups.clear();
+        groups.addAll(newGroups);
         invalidate();
     }
 
@@ -388,6 +411,10 @@ public class BasketView extends View {
         // Projections behind the day's own cards: work merely passing through a
         // day must never sit in front of what the day is actually about.
         for (Projected pr : projected) drawProjected(canvas, pr);
+        // Group containers and dock connectors draw behind the cards, matching
+        // the desktop's painter order.
+        drawGroups(canvas);
+        drawDockLinks(canvas);
         canvas.restore();
 
         // Each card gets its own transform, because each sits at its own depth.
@@ -449,6 +476,56 @@ public class BasketView extends View {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Group containers behind their member cards — tinted box plus a header
+     * strip carrying the name, mirroring the desktop canvas. Bounds are the
+     * union of the members' rects (membership rides on each card's
+     * {@code groupId}); a group whose members are all elsewhere draws nothing.
+     */
+    private void drawGroups(Canvas canvas) {
+        if (groups.isEmpty()) return;
+        for (Card.Group g : groups) {
+            android.graphics.RectF b = null;
+            for (Card c : cards) {
+                if (c.groupId != g.id) continue;
+                if (b == null) b = new android.graphics.RectF(c.x, c.y, c.x + c.w, c.y + c.h);
+                else b.union(c.x, c.y, c.x + c.w, c.y + c.h);
+            }
+            if (b == null) continue;
+            b.inset(-10f, -10f);
+            int[] col = g.color != null ? g.color : DEFAULT_CARD_COLOR;
+            groupFill.setColor(Color.argb(15, col[0], col[1], col[2]));
+            canvas.drawRoundRect(b, 6f, 6f, groupFill);
+            groupStroke.setColor(Color.argb(191, col[0], col[1], col[2]));
+            canvas.drawRoundRect(b, 6f, 6f, groupStroke);
+            // Header strip above the box, carrying the name.
+            android.graphics.RectF header =
+                    new android.graphics.RectF(b.left, b.top - 21f, b.right, b.top - 3f);
+            groupFill.setColor(Color.argb(230, col[0], col[1], col[2]));
+            canvas.drawRoundRect(header, 4f, 4f, groupFill);
+            String label = g.title == null || g.title.isEmpty() ? "Group" : g.title;
+            canvas.save();
+            canvas.clipRect(header);
+            canvas.drawText(label, header.left + 6f,
+                    header.centerY() + groupLabel.getTextSize() * 0.35f, groupLabel);
+            canvas.restore();
+        }
+    }
+
+    /** Faint links between docked cards, mirroring the desktop's connectors. */
+    private void drawDockLinks(Canvas canvas) {
+        for (Card c : cards) {
+            if (c.dockedTo == 0) continue;
+            Card anchor = null;
+            for (Card a : cards) {
+                if (a.id == c.dockedTo) { anchor = a; break; }
+            }
+            if (anchor == null) continue;
+            canvas.drawLine(c.x + c.w / 2f, c.y + c.h / 2f,
+                    anchor.x + anchor.w / 2f, anchor.y + anchor.h / 2f, dockLink);
+        }
     }
 
     /** The fading outline that says "this is the one you followed". */

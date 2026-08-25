@@ -57,6 +57,11 @@ public class Card {
     public boolean htmlRendered;
     /** The body changed since the picture was taken. */
     public boolean htmlStale;
+    /** The card this one is docked to (stuck to, moves with), or 0. */
+    public long dockedTo;
+    /** The group container this card belongs to, or 0. Group ids are their own
+     *  id space (a {@code [[#g…]]} link), so this is never a card id. */
+    public long groupId;
 
     public static class Item {
         /** Stable across reorders since desktop v0.90.0 — address the line by
@@ -105,6 +110,8 @@ public class Card {
         c.title = o.optString("title", "");
         c.kind = o.optString("kind", "text");
         c.color = rgb(o.optJSONArray("color"));
+        c.dockedTo = o.optLong("docked_to", 0);
+        c.groupId = o.optLong("group", 0);
 
         JSONArray pos = o.optJSONArray("pos");
         JSONArray size = o.optJSONArray("size");
@@ -196,5 +203,32 @@ public class Card {
     private static int[] rgb(JSONArray a) {
         if (a == null || a.length() < 3) return null;
         return new int[]{a.optInt(0), a.optInt(1), a.optInt(2)};
+    }
+
+    /** One group container from a node's {@code groups} array (desktop
+     *  v0.111.0). Membership rides on each card's {@code groupId}, so the
+     *  container itself only carries identity, name and colour. */
+    public static class Group {
+        public long id;
+        public String title = "";
+        public int[] color;
+    }
+
+    /** The {@code groups} array of a node response, tolerating its absence —
+     *  an older desktop, or a basket with none. */
+    public static List<Group> parseGroups(JSONObject nodeResponse) {
+        List<Group> out = new ArrayList<>();
+        JSONArray arr = nodeResponse.optJSONArray("groups");
+        if (arr == null) return out;
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o == null) continue;
+            Group g = new Group();
+            g.id = o.optLong("id");
+            g.title = o.optString("title", "");
+            g.color = rgb(o.optJSONArray("color"));
+            out.add(g);
+        }
+        return out;
     }
 }
