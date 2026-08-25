@@ -90,6 +90,18 @@ public class CardReaderActivity extends AppCompatActivity {
     /** Showing the picture rather than the HTML source. */
     private boolean showingPage;
     private boolean editing;
+    /** This card is a channel — the reader live-polls while one is on screen. */
+    private boolean channelCard;
+    /** How often an open channel card re-reads itself. A conversation partner's
+     *  reply lands seconds after your send; without this it was invisible until
+     *  the card was exited and re-entered (operator report, via the channel). */
+    private static final long CHANNEL_POLL_MS = 3000L;
+    private final Runnable channelPoll = new Runnable() {
+        @Override public void run() {
+            if (channelCard && !editing) reload();
+            ui.postDelayed(this, CHANNEL_POLL_MS);
+        }
+    };
     /** Any edit at all — the basket reloads when this activity finishes. */
     private boolean changed;
 
@@ -207,6 +219,7 @@ public class CardReaderActivity extends AppCompatActivity {
             final boolean isP = page;
             final android.graphics.Bitmap shot = bmp;
             ui.post(() -> {
+                channelCard = show;
                 composeBar.setVisibility(show && !editing ? View.VISIBLE : View.GONE);
                 isPage = isP;
                 if (isP) {
@@ -687,8 +700,29 @@ public class CardReaderActivity extends AppCompatActivity {
                 // basket reloads on the way out regardless.
             }
             final String b = body;
-            if (b != null) ui.post(() -> { sourceBody = b; if (!editing) render(b); });
+            // An unchanged body is not re-rendered: the channel poll calls this
+            // every few seconds, and re-rendering identical text would yank the
+            // scroll position out from under a reader mid-message.
+            if (b != null) ui.post(() -> {
+                if (b.equals(sourceBody)) return;
+                sourceBody = b;
+                if (!editing) render(b);
+            });
         });
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        // Live refresh while a channel card is on screen — the reply to what you
+        // just sent arrives seconds later, and waiting for a re-open to show it
+        // makes the conversation look dead. The runnable checks channelCard
+        // itself, so starting it before the channel probe answers is harmless.
+        ui.postDelayed(channelPoll, CHANNEL_POLL_MS);
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        ui.removeCallbacks(channelPoll);
     }
 
     private void handleBack() {
