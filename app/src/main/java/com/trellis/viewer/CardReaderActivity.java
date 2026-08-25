@@ -160,6 +160,19 @@ public class CardReaderActivity extends AppCompatActivity {
         composeText = findViewById(R.id.compose_text);
         composeSend = findViewById(R.id.compose_send);
         composeSend.setOnClickListener(v -> sendMessage());
+        // Fires for the soft keyboard's send key (IME_ACTION_SEND) and for a
+        // hardware Enter, which arrives as IME_NULL with the key event attached.
+        // Both are gated on the setting, so with it off Enter stays a newline.
+        composeText.setOnEditorActionListener((v, actionId, ev) -> {
+            boolean enter = actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+                    || (ev != null && ev.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER
+                        && ev.getAction() == android.view.KeyEvent.ACTION_DOWN);
+            if (enter && com.trellis.viewer.util.ComposePrefs.enterSends(this)) {
+                sendMessage();
+                return true;
+            }
+            return false;
+        });
         pageImage = findViewById(R.id.page_image);
 
         if ("checklist".equals(kind) && !items.isEmpty()) {
@@ -718,6 +731,34 @@ public class CardReaderActivity extends AppCompatActivity {
         // makes the conversation look dead. The runnable checks channelCard
         // itself, so starting it before the channel probe answers is harmless.
         ui.postDelayed(channelPoll, CHANNEL_POLL_MS);
+        applyEnterSends();
+    }
+
+    /**
+     * Make the keyboard match the Enter-sends setting. Applied in onResume, not
+     * once, because the setting can change while this screen sits in the back
+     * stack behind Settings.
+     *
+     * <p>With the option ON, the raw input type drops the MULTILINE flag — that
+     * flag is what makes an IME show a newline key instead of an action key — so
+     * the keyboard offers Send while the field still wraps and grows (the view's
+     * multiline layout attributes are untouched). OFF restores the ordinary
+     * multiline editor, where Enter is a line break.
+     */
+    private void applyEnterSends() {
+        boolean sends = com.trellis.viewer.util.ComposePrefs.enterSends(this);
+        if (sends) {
+            composeText.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEND);
+            composeText.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        } else {
+            composeText.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NONE);
+            composeText.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        }
+        composeText.setHorizontallyScrolling(false);
+        composeText.setMaxLines(6);
     }
 
     @Override protected void onPause() {

@@ -190,6 +190,21 @@
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:text="A card with start:: and due:: appears in every journal day between them — the same card, not a copy. Tap one to go to the day it lives in."/>
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/enter_sends_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="8dp"
+                android:text="Enter sends a channel message"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:text="On, the keyboard shows a send key and Enter submits what you typed in a channel card. Off, Enter makes a new line and the arrow button sends."/>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

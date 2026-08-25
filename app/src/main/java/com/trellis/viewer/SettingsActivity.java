@@ -255,6 +255,11 @@ public class SettingsActivity extends AppCompatActivity {
         timeSwitch.setOnCheckedChangeListener((v, on) ->
                 com.trellis.viewer.util.Hypercube.setTimeMode(this, on));
 
+        MaterialSwitch enterSends = findViewById(R.id.enter_sends_switch);
+        enterSends.setChecked(com.trellis.viewer.util.ComposePrefs.enterSends(this));
+        enterSends.setOnCheckedChangeListener((v, on) ->
+                com.trellis.viewer.util.ComposePrefs.setEnterSends(this, on));
+
         MaterialSwitch lockSwitch = findViewById(R.id.lock_switch);
         TextView note = findViewById(R.id.lock_note);
         RadioGroup graceGroup = findViewById(R.id.lock_grace_group);
