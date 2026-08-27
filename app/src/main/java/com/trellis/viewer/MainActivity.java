@@ -57,6 +57,15 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS = "trellis_settings";
     private static final String K_EXPANDED = "expanded_nodes";
+    private static final String K_SCROLL_ID = "tree_scroll_id";
+    private static final String K_SCROLL_OFF = "tree_scroll_off";
+
+    /** Restore the saved list place after the next tree load. Set when the
+     *  activity is (re)created or the workstation switches — the two moments the
+     *  RecyclerView's own scroll state has been lost — and consumed on the first
+     *  successful load, so a live refresh never yanks the view out from under
+     *  whoever is reading. */
+    private boolean pendingScrollRestore = true;
 
     /**
      * Follow a {@code trellis://} link, whichever way it arrived.
@@ -125,6 +134,7 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onPause() {
         super.onPause();
         waiter.stop();
+        saveScrollPlace();
     }
 
     @Override public boolean onCreateOptionsMenu(Menu menu) {
@@ -211,6 +221,7 @@ public class MainActivity extends AppCompatActivity {
                     expandedIds.clear();
                     rebuildVisible();
                     loadExpandedState();
+                    pendingScrollRestore = true; // the new document's own saved place
                     load();
                     waiter.start(this, ui, this::load);
                 })
@@ -250,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
                     list.setVisibility(View.VISIBLE);
                     roots = result;
                     rebuildVisible();
+                    restoreScrollPlace();
                     // On a live load, pre-cache every basket so offline shows the
                     // whole document, not just baskets we happened to open.
                     if (!fromCache) prefetchAll(result);
@@ -374,6 +386,47 @@ public class MainActivity extends AppCompatActivity {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putStringSet(expandedKey(), out).apply();
     }
 
+    // ---- Persisted list place ------------------------------------------------
+
+    /** Same namespacing as the folds: a row is a node, and node ids are
+     *  per-document, so the saved place belongs to one workstation. */
+    private String scrollKey(String base) {
+        java.util.List<ServerPrefs.Server> all = ServerPrefs.servers(this);
+        if (all.size() <= 1) return base;
+        return base + "_" + Integer.toHexString(ServerPrefs.baseUrl(this).hashCode());
+    }
+
+    /** Remember which node tops the list, and how far into its row we are. The
+     *  node id, not the row index: the tree reshapes between visits (another
+     *  agent adds a node, a fold changes), and an index into a different list is
+     *  a different place. */
+    private void saveScrollPlace() {
+        LinearLayoutManager lm = (LinearLayoutManager) list.getLayoutManager();
+        if (lm == null) return;
+        int pos = lm.findFirstVisibleItemPosition();
+        if (pos < 0 || pos >= adapter.getItemCount()) return;
+        View row = lm.findViewByPosition(pos);
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putLong(scrollKey(K_SCROLL_ID), adapter.itemAt(pos).id)
+                .putInt(scrollKey(K_SCROLL_OFF), row == null ? 0 : row.getTop())
+                .apply();
+    }
+
+    /** Put the list back where it was, once, after the first tree load. A saved
+     *  node that is gone (deleted, or folded away) leaves the list at the top
+     *  rather than guessing at a neighbour. */
+    private void restoreScrollPlace() {
+        if (!pendingScrollRestore) return;
+        pendingScrollRestore = false;
+        long id = getSharedPreferences(PREFS, MODE_PRIVATE).getLong(scrollKey(K_SCROLL_ID), 0L);
+        if (id == 0L) return;
+        int off = getSharedPreferences(PREFS, MODE_PRIVATE).getInt(scrollKey(K_SCROLL_OFF), 0);
+        int pos = adapter.positionOf(id);
+        if (pos < 0) return;
+        LinearLayoutManager lm = (LinearLayoutManager) list.getLayoutManager();
+        if (lm != null) lm.scrollToPositionWithOffset(pos, off);
+    }
+
     private void showStatus(String msg) {
         list.setVisibility(View.GONE);
         status.setVisibility(View.VISIBLE);
@@ -410,6 +463,18 @@ public class MainActivity extends AppCompatActivity {
             items.clear();
             items.addAll(newItems);
             notifyDataSetChanged();
+        }
+
+        TreeNode itemAt(int position) {
+            return items.get(position);
+        }
+
+        /** The row showing this node, or -1 while it is folded away or gone. */
+        int positionOf(long nodeId) {
+            for (int i = 0; i < items.size(); i++) {
+                if (items.get(i).id == nodeId) return i;
+            }
+            return -1;
         }
 
         @NonNull @Override public NodeVH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
