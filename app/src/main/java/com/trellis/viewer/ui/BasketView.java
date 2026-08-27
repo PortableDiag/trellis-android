@@ -45,6 +45,8 @@ public class BasketView extends View {
     private float scale = 1f, offsetX = 0f, offsetY = 0f;
     /** Depth: cards projected through a camera rather than drawn flat. */
     private boolean depthMode;
+    /** Feed: this basket reads as one computed column, newest card first. */
+    private boolean feed;
     /** Set while drawing if any card pulsed, so only then do we ask for another frame. */
     private boolean pulsing;
     private boolean fitPending = true;
@@ -241,9 +243,41 @@ public class BasketView extends View {
         // reading of z: a stacking order. A stable sort keeps document order for
         // the cards that share a depth — i.e. every card in a flat document.
         java.util.Collections.sort(cards, (a, b) -> Float.compare(a.z, b.z));
+        if (feed) applyFeedLayout();
         mdCache.clear(); // bodies may have changed on a live update
         layoutCache.clear();
         invalidate();
+    }
+
+    /**
+     * Turn the feed reading on or off. Call before {@link #setCards}: the feed
+     * layout is applied to the cards as they arrive, never stored.
+     */
+    public void setFeed(boolean on) {
+        if (feed == on) return;
+        feed = on;
+        fitPending = true; // the whole layout moved; refit the viewport
+        invalidate();
+    }
+
+    /**
+     * Lay the cards out as the desktop's feed does: one column, newest first.
+     *
+     * <p>The key is the card id — the document-wide creation counter, so within
+     * a basket a higher id IS a later entry — and deliberately not
+     * {@code touched}: editing an old entry must not teleport it to the top.
+     * This viewer never writes a position back, so overwriting the local x/y is
+     * safe and lets hit-testing, focus and fit-to-content work unchanged.
+     */
+    private void applyFeedLayout() {
+        final java.util.List<Card> byNew = new java.util.ArrayList<>(cards);
+        java.util.Collections.sort(byNew, (a, b) -> Long.compare(b.id, a.id));
+        float y = 40f;
+        for (Card c : byNew) {
+            c.x = 40f;
+            c.y = y;
+            y += c.h + 24f;
+        }
     }
 
     /** Group containers to draw behind their member cards, like the desktop. */
@@ -291,7 +325,7 @@ public class BasketView extends View {
      * what is on top whether or not the camera is on.
      */
     private java.util.List<Card> inDrawOrder() {
-        if (!depthMode) return cards;
+        if (!depthActive()) return cards;
         final java.util.List<Card> sorted = new java.util.ArrayList<>(cards);
         java.util.Collections.sort(sorted, (a, b) -> Float.compare(a.z, b.z));
         return sorted;
@@ -377,7 +411,15 @@ public class BasketView extends View {
      * views of one basket recognisably the same arrangement.
      */
     private float depthScaleOf(Card c) {
-        return depthMode ? com.trellis.viewer.util.Hypercube.depthScale(c.z) : 1f;
+        return depthActive() ? com.trellis.viewer.util.Hypercube.depthScale(c.z) : 1f;
+    }
+
+    /**
+     * Depth stands down in a feed, like the desktop: the camera acts on a stored
+     * arrangement, and a feed's layout is computed.
+     */
+    private boolean depthActive() {
+        return depthMode && !feed;
     }
 
     @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
@@ -408,13 +450,20 @@ public class BasketView extends View {
         canvas.save();
         canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
-        // Projections behind the day's own cards: work merely passing through a
-        // day must never sit in front of what the day is actually about.
-        for (Projected pr : projected) drawProjected(canvas, pr);
-        // Group containers and dock connectors draw behind the cards, matching
-        // the desktop's painter order.
-        drawGroups(canvas);
-        drawDockLinks(canvas);
+        // In a feed nothing drawn FROM stored geometry may draw at all —
+        // projections, group frames and dock connectors are all painted from
+        // real x/y, and each would land as a stray shape across the computed
+        // column (the desktop hit exactly this, one painter at a time, in
+        // v0.160.4 and v0.160.5).
+        if (!feed) {
+            // Projections behind the day's own cards: work merely passing through a
+            // day must never sit in front of what the day is actually about.
+            for (Projected pr : projected) drawProjected(canvas, pr);
+            // Group containers and dock connectors draw behind the cards, matching
+            // the desktop's painter order.
+            drawGroups(canvas);
+            drawDockLinks(canvas);
+        }
         canvas.restore();
 
         // Each card gets its own transform, because each sits at its own depth.
@@ -1180,6 +1229,17 @@ public class BasketView extends View {
             maxX = Math.max(maxX, c.x + c.w); maxY = Math.max(maxY, c.y + c.h);
         }
         float cw = Math.max(1, maxX - minX), ch = Math.max(1, maxY - minY);
+        if (feed) {
+            // A feed is one tall column: fitting its whole height shrinks every
+            // entry to confetti. Fit the WIDTH and land at the top, where the
+            // newest entry is — that is the reading the flag promises. Scrolling
+            // down is the feed's whole gesture; zooming out stays available.
+            float s = (getWidth() / cw) * 0.92f;
+            scale = clamp(s, 0.2f, 2f);
+            offsetX = (getWidth() - cw * scale) / 2f - minX * scale;
+            offsetY = 24f - minY * scale;
+            return;
+        }
         float s = Math.min(getWidth() / cw, getHeight() / ch) * 0.92f;
         scale = clamp(s, 0.2f, 2f);
         offsetX = (getWidth() - cw * scale) / 2f - minX * scale;

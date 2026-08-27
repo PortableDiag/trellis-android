@@ -60,6 +60,8 @@ public class BasketActivity extends AppCompatActivity {
     private String thisNodeTitle;
     private boolean polling;
     private volatile boolean loading;
+    /** Whether the open basket is a feed, as of the last successful load. */
+    private boolean feedActive;
     /** Accent this activity was themed with, to detect a Settings change. */
     private String appliedAccent;
 
@@ -275,6 +277,11 @@ public class BasketActivity extends AppCompatActivity {
                 .setChecked(com.trellis.viewer.util.Hypercube.depthMode(this));
         menu.findItem(R.id.action_time)
                 .setChecked(com.trellis.viewer.util.Hypercube.timeMode(this));
+        // Depth and Time act on a stored arrangement; a feed's layout is
+        // computed, so both stand down here — disabled, exactly as the desktop
+        // greys its toggles, rather than present and silently inert.
+        menu.findItem(R.id.action_depth).setEnabled(!feedActive);
+        menu.findItem(R.id.action_time).setEnabled(!feedActive);
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -425,18 +432,24 @@ public class BasketActivity extends AppCompatActivity {
             List<Card> cards = null;
             java.util.List<Card.Group> groups = new java.util.ArrayList<>();
             java.util.List<BasketView.Projected> projected = new java.util.ArrayList<>();
+            boolean feed = false;
             String error = null;
             try {
                 org.json.JSONObject nodeJson = api.node(nodeId);
+                feed = nodeJson.optBoolean("feed", false);
                 cards = Card.parseCards(nodeJson);
                 groups = Card.parseGroups(nodeJson);
-                projected = loadProjections(api);
+                // Time stands down in a feed like Depth does, so the projections
+                // are not even fetched — they would only be discarded.
+                if (!feed) projected = loadProjections(api);
+                else projectionNote = null;
             } catch (Exception e) {
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
             final List<Card> result = cards;
             final java.util.List<Card.Group> grps = groups;
             final java.util.List<BasketView.Projected> proj = projected;
+            final boolean fd = feed;
             final String err = error;
             final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
@@ -450,10 +463,19 @@ public class BasketActivity extends AppCompatActivity {
                     status.setVisibility(View.GONE);
                     basket.setVisibility(View.VISIBLE);
                     basket.clearPendingImageRequests(); // retry any images that hadn't loaded
+                    if (feedActive != fd) {
+                        feedActive = fd;
+                        invalidateOptionsMenu(); // Depth/Time enable state follows the flag
+                    }
+                    basket.setFeed(fd); // before setCards — the layout applies as they arrive
                     basket.setDepthMode(com.trellis.viewer.util.Hypercube.depthMode(this));
                     basket.setCards(result);
                     basket.setGroups(grps);
                     basket.setProjected(proj);
+                    if (fd && getSupportActionBar() != null
+                            && getSupportActionBar().getSubtitle() == null) {
+                        getSupportActionBar().setSubtitle(getString(R.string.feed_subtitle));
+                    }
                     setProjectionNote(proj.isEmpty() ? projectionNote : null);
                 }
             });
