@@ -501,12 +501,14 @@ public class MainActivity extends AppCompatActivity {
 
     private static class NodeVH extends RecyclerView.ViewHolder {
         final android.widget.ImageView arrow;
+        final android.widget.ImageView dot;
         final TextView title;
         final TextView meta;
 
         NodeVH(@NonNull View itemView) {
             super(itemView);
             arrow = itemView.findViewById(R.id.node_arrow);
+            dot = itemView.findViewById(R.id.node_dot);
             title = itemView.findViewById(R.id.node_title);
             meta = itemView.findViewById(R.id.node_meta);
         }
@@ -523,6 +525,14 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 arrow.setVisibility(View.INVISIBLE);
                 arrow.setClickable(false);
+            }
+            // The color tag, tinted per node. Invisible (never gone) without one,
+            // so titles line up whether or not a row is tagged.
+            if (n.color != null) {
+                dot.setVisibility(View.VISIBLE);
+                dot.setColorFilter(android.graphics.Color.rgb(n.color[0], n.color[1], n.color[2]));
+            } else {
+                dot.setVisibility(View.INVISIBLE);
             }
             title.setText(n.title.isEmpty() ? "(untitled)" : n.title);
             meta.setText(n.cardCount == 1 ? "1 card" : n.cardCount + " cards");

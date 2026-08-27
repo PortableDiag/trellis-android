@@ -19,6 +19,17 @@
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="Expand or collapse"/>
 
+    <!-- The node's color tag, as on the desktop tree. The slot is kept (invisible,
+         not gone) for a colorless node so every title starts at the same x — the
+         desktop re-learned that alignment in v0.160.2. -->
+    <ImageView
+        android:id="@+id/node_dot"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginEnd="10dp"
+        android:src="@drawable/node_dot"
+        android:importantForAccessibility="no"/>
+
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"

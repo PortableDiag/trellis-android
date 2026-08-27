@@ -15,6 +15,8 @@ public class TreeNode {
     public final String title;
     public final int cardCount;
     public final int depth;
+    /** The node's color tag as [r,g,b], or null when it has none. */
+    public final int[] color;
     public final List<TreeNode> children = new ArrayList<>();
     /** Whether this node's children are shown. Runtime-only UI state, set from
      *  the persisted expanded-set; collapsed by default. */
@@ -24,11 +26,12 @@ public class TreeNode {
         return !children.isEmpty();
     }
 
-    private TreeNode(long id, String title, int cardCount, int depth) {
+    private TreeNode(long id, String title, int cardCount, int depth, int[] color) {
         this.id = id;
         this.title = title;
         this.cardCount = cardCount;
         this.depth = depth;
+        this.color = color;
     }
 
     /** Parse the {@code roots} array from a /tree response. */
@@ -42,11 +45,17 @@ public class TreeNode {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.optJSONObject(i);
             if (o == null) continue;
+            JSONArray col = o.optJSONArray("color");
+            int[] rgb = null;
+            if (col != null && col.length() == 3) {
+                rgb = new int[]{col.optInt(0), col.optInt(1), col.optInt(2)};
+            }
             TreeNode n = new TreeNode(
                     o.optLong("id"),
                     o.optString("title", ""),
                     o.optInt("cards", 0),
-                    depth);
+                    depth,
+                    rgb);
             n.children.addAll(parseLevel(o.optJSONArray("children"), depth + 1));
             out.add(n);
         }
