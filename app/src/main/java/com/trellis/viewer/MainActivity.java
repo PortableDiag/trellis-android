@@ -68,26 +68,51 @@ public class MainActivity extends AppCompatActivity {
     private boolean pendingScrollRestore = true;
 
     /**
-     * Follow a {@code trellis://} link, whichever way it arrived.
+     * A {@code trellis://} link waiting to be followed. Links are STASHED on
+     * arrival and followed from {@code onResume}, once the app lock has had its
+     * say — never straight from {@code onCreate}/{@code onNewIntent}. Following
+     * immediately raced the gate: the gate latches in {@code onStart}, calls
+     * {@code ServerPrefs.forget()} and covers the screen, so a link tapped in
+     * Telegram against a locked app resolved with a dropped key (or its failure
+     * toast died invisibly behind the gate) and the user landed on the bare
+     * tree — working only on the second tap, when the gate was already open.
+     */
+    private android.net.Uri pendingLink;
+
+    /**
+     * Remember a {@code trellis://} link, whichever way it arrived.
      *
      * <p>The link names a **port**, and the port is the document — so it selects
      * which saved workstation to ask. Being wrong here is not a harmless
      * mis-navigation: card ids repeat across documents, so asking the wrong
      * instance resolves to a real card that is not the one meant.
      */
-    private void handleDeepLink(android.content.Intent intent) {
+    private void stashDeepLink(android.content.Intent intent) {
         if (intent == null || intent.getData() == null) return;
-        if (com.trellis.viewer.util.WikiLinks.followDeepLink(this, intent.getData())) {
-            // Consume it: a rotation or a return from the basket must not follow
-            // the same link again.
-            intent.setData(null);
-        }
+        final String scheme = intent.getData().getScheme();
+        if (!"trellis".equals(scheme) && !"hypercube".equals(scheme)) return;
+        pendingLink = intent.getData();
+        // Consume it: a rotation or a return from the basket must not follow
+        // the same link again.
+        intent.setData(null);
+    }
+
+    /** Follow the stashed link — from onResume, and only past a settled gate. */
+    private void followPendingLink() {
+        if (pendingLink == null) return;
+        // While the gate is up (or about to be), shouldPrompt is true; the
+        // unlock brings this activity back through onResume and the link runs
+        // then, with the keys decryptable again.
+        if (com.trellis.viewer.util.LockPrefs.shouldPrompt(this)) return;
+        final android.net.Uri link = pendingLink;
+        pendingLink = null;
+        com.trellis.viewer.util.WikiLinks.followDeepLink(this, link);
     }
 
     @Override protected void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleDeepLink(intent);
+        stashDeepLink(intent);
     }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
@@ -102,9 +127,10 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // A trellis:// link that launched us. Handled after the tree is wired up
-        // so the basket it opens has something to come back to.
-        handleDeepLink(getIntent());
+        // A trellis:// link that launched us. Stashed here, followed from
+        // onResume — after the app lock has settled, and after the tree is
+        // wired up so the basket it opens has something to come back to.
+        stashDeepLink(getIntent());
 
         status = findViewById(R.id.status);
         list = findViewById(R.id.list);
@@ -127,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
             recreate();
             return;
         }
+        followPendingLink();
         load();
         waiter.start(this, ui, this::load); // refresh the tree on any change
     }
