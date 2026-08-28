@@ -5,8 +5,12 @@ notes over the LAN. It reads the desktop app's key-gated agent API and shows the
 node tree and baskets on your phone, so you can see updates (including agent/AI
 edits) while away from the workstation.
 
-**View-only** to start. Nothing is stored server-side; the phone just reads the
-document from the desktop over HTTP on your local network.
+Not just a viewer any more: the phone **edits card bodies, ticks checklist
+lines and sets `status::`**, adds note and photo cards, makes and answers
+**channel** conversations, renders the desktop's web-page cards, reads feed
+baskets newest-first, and draws groups, dock links and the tree's color dots —
+all through the same key-gated API, with an offline cache for reading when the
+desktop is away. Nothing is stored server-side.
 
 ## Setup
 
@@ -32,8 +36,14 @@ Only use on trusted networks; the desktop API is key-gated but unencrypted (HTTP
 ## Build
 
 ```sh
-./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease      # app/build/outputs/apk/release/app-release.apk
 ```
+
+Releases are **always `assembleRelease`**, signed with the project's own key
+(`keystore.properties`); verify with `apksigner verify --print-certs` — expect
+`CN=Trellis`, never `CN=Android Debug`. (A debug-signed build will not update a
+release-signed install, and shipping one is how six early releases went out
+wrong.) `assembleDebug` exists for local experiments only.
 
 Java + XML Views, Material 3. AGP 8.7.3 / Gradle 8.11.1, `compileSdk 35`,
 `minSdk 26`, Java 17.
