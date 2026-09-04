@@ -433,10 +433,12 @@ public class BasketActivity extends AppCompatActivity {
             java.util.List<Card.Group> groups = new java.util.ArrayList<>();
             java.util.List<BasketView.Projected> projected = new java.util.ArrayList<>();
             boolean feed = false;
+            com.trellis.viewer.model.Fill bg = null;
             String error = null;
             try {
                 org.json.JSONObject nodeJson = api.node(nodeId);
                 feed = nodeJson.optBoolean("feed", false);
+                bg = com.trellis.viewer.model.Fill.from(nodeJson.optJSONObject("bg_fill"));
                 cards = Card.parseCards(nodeJson);
                 groups = Card.parseGroups(nodeJson);
                 // Time stands down in a feed like Depth does, so the projections
@@ -450,6 +452,7 @@ public class BasketActivity extends AppCompatActivity {
             final java.util.List<Card.Group> grps = groups;
             final java.util.List<BasketView.Projected> proj = projected;
             final boolean fd = feed;
+            final com.trellis.viewer.model.Fill bgf = bg;
             final String err = error;
             final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
@@ -467,6 +470,7 @@ public class BasketActivity extends AppCompatActivity {
                         feedActive = fd;
                         invalidateOptionsMenu(); // Depth/Time enable state follows the flag
                     }
+                    basket.setBackgroundFill(bgf);
                     basket.setFeed(fd); // before setCards — the layout applies as they arrive
                     basket.setDepthMode(com.trellis.viewer.util.Hypercube.depthMode(this));
                     basket.setCards(result);

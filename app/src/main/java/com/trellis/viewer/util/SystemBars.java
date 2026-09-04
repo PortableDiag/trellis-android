@@ -67,6 +67,36 @@ public final class SystemBars {
         apply(v, false, false, false, true);
     }
 
+    /**
+     * Like {@link #fit}, but the bottom also clears the <b>keyboard</b>.
+     *
+     * <p>For a screen with something to type into pinned at its bottom edge. The
+     * system-bar insets alone do not describe an open IME, so on a screen laid
+     * out edge-to-edge the keyboard slides up <em>over</em> the composer: the
+     * operator reported typing into a channel card on the phone and being unable
+     * to see the text they were typing. The bottom inset is therefore the
+     * <b>larger</b> of the navigation bar and the IME — they occupy the same
+     * edge, and adding them would leave a navigation bar's worth of dead space
+     * above an open keyboard.
+     *
+     * <p>The activity still needs {@code windowSoftInputMode="adjustResize"}:
+     * this moves the content inside the window, and that is what stops the
+     * window itself being panned out from under the toolbar.
+     */
+    public static void fitWithIme(View v) {
+        final int pl = v.getPaddingLeft(), pt = v.getPaddingTop();
+        final int pr = v.getPaddingRight(), pb = v.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(v, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout());
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            view.setPadding(pl + bars.left, pt + bars.top, pr + bars.right,
+                    pb + Math.max(bars.bottom, ime.bottom));
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(v);
+    }
+
     private static void apply(View v, boolean left, boolean top, boolean right, boolean bottom) {
         // Capture the view's own padding once: the listener runs again on every
         // rotation and bar change, and must not accumulate.

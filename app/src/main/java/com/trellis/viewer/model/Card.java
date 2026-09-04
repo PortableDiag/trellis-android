@@ -17,6 +17,9 @@ public class Card {
     public String title = "";
     public String kind = "text";
     public int[] color;          // [r,g,b] accent, or null
+    /** A pattern painted where the flat accent would go, or null (desktop
+     *  v0.166.0+). Presentation only — see {@link Fill}. */
+    public Fill fill;
 
     // text / code
     public String body = "";
@@ -110,6 +113,7 @@ public class Card {
         c.title = o.optString("title", "");
         c.kind = o.optString("kind", "text");
         c.color = rgb(o.optJSONArray("color"));
+        c.fill = Fill.from(o.optJSONObject("fill"));
         c.dockedTo = o.optLong("docked_to", 0);
         c.groupId = o.optLong("group", 0);
 
@@ -212,6 +216,8 @@ public class Card {
         public long id;
         public String title = "";
         public int[] color;
+        /** The group's own pattern, or null. */
+        public Fill fill;
     }
 
     /** The {@code groups} array of a node response, tolerating its absence —
@@ -227,6 +233,7 @@ public class Card {
             g.id = o.optLong("id");
             g.title = o.optString("title", "");
             g.color = rgb(o.optJSONArray("color"));
+            g.fill = Fill.from(o.optJSONObject("fill"));
             out.add(g);
         }
         return out;

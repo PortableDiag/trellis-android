@@ -20,6 +20,7 @@
          match_parent child takes every remaining pixel, which left the compose
          bar below with nothing and made it invisible even when shown. -->
     <ScrollView
+        android:id="@+id/body_scroller"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

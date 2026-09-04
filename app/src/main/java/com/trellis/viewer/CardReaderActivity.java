@@ -80,6 +80,8 @@ public class CardReaderActivity extends AppCompatActivity {
     private TextView bodyView;
     private EditText editor;
     private View bodyScroll;
+    /** The vertical scroller the body sits in — a channel is read at its end. */
+    private android.widget.ScrollView bodyScroller;
     private LinearLayout checklist;
     private LinearLayout composeBar;
     private EditText composeText;
@@ -116,9 +118,12 @@ public class CardReaderActivity extends AppCompatActivity {
         setTheme(ThemePrefs.themeRes(this));
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_card_reader);
-        // Android 15 lays every app out edge-to-edge; keep our content
-        // out from under the status and navigation bars.
-        SystemBars.fit(findViewById(android.R.id.content));
+        // Android 15 lays every app out edge-to-edge; keep our content out from
+        // under the status and navigation bars — and, on this screen, out from
+        // under the KEYBOARD. A channel card has a composer pinned to its bottom
+        // edge, and without the IME inset the keyboard covered the very text
+        // being typed into it (operator report, from the phone).
+        SystemBars.fitWithIme(findViewById(android.R.id.content));
 
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         String body = getIntent().getStringExtra(EXTRA_BODY);
@@ -154,12 +159,19 @@ public class CardReaderActivity extends AppCompatActivity {
         bodyView = findViewById(R.id.body);
         editor = findViewById(R.id.editor);
         bodyScroll = findViewById(R.id.body_scroll);
+        bodyScroller = findViewById(R.id.body_scroller);
         checklist = findViewById(R.id.checklist);
 
         composeBar = findViewById(R.id.compose_bar);
         composeText = findViewById(R.id.compose_text);
         composeSend = findViewById(R.id.compose_send);
         composeSend.setOnClickListener(v -> sendMessage());
+        // Tapping the composer means you are about to join the conversation, so
+        // put its end on screen. The keyboard opening resizes the content, which
+        // is exactly when the last message would otherwise slide out of view.
+        composeText.setOnFocusChangeListener((v, has) -> {
+            if (has) scrollToNewest();
+        });
         // Fires for the soft keyboard's send key (IME_ACTION_SEND) and for a
         // hardware Enter, which arrives as IME_NULL with the key event attached.
         // Both are gated on the setting, so with it off Enter stays a newline.
@@ -232,8 +244,13 @@ public class CardReaderActivity extends AppCompatActivity {
             final boolean isP = page;
             final android.graphics.Bitmap shot = bmp;
             ui.post(() -> {
+                boolean firstTime = show && !channelCard;
                 channelCard = show;
                 composeBar.setVisibility(show && !editing ? View.VISIBLE : View.GONE);
+                // A conversation is read at its end. Opening one at the top
+                // showed the oldest thing in it — on a channel with any history
+                // at all, a screenful of what you read days ago.
+                if (firstTime) scrollToNewest();
                 isPage = isP;
                 if (isP) {
                     if (shot != null) {
@@ -274,6 +291,40 @@ public class CardReaderActivity extends AppCompatActivity {
         invalidateOptionsMenu();
     }
 
+    /**
+     * Put the end of the card on screen — where a channel's newest message is.
+     *
+     * <p>{@code say} <b>appends</b>, so a conversation grows downward and the
+     * part worth reading is the bottom. The reader opened at the top and stayed
+     * there through every send and every poll, so after a few exchanges each
+     * message meant a long manual scroll past everything already read (operator
+     * report, from the phone).
+     *
+     * <p>Posted rather than called straight: the text has just been handed to
+     * the TextView and has no height yet this frame, so scrolling now would
+     * scroll to where the bottom used to be.
+     */
+    private void scrollToNewest() {
+        if (bodyScroller == null) return;
+        bodyScroller.post(() -> bodyScroller.fullScroll(View.FOCUS_DOWN));
+    }
+
+    /**
+     * Whether the reader is already at (or within a line or two of) the end.
+     *
+     * <p>The gate on auto-scrolling a message that arrived by itself: scrolling
+     * back is what a reader means by reading, and a poll that yanked them to the
+     * bottom every three seconds would make an old message impossible to read
+     * while a conversation was live. Your OWN send always scrolls — you wrote
+     * it, you are looking for it.
+     */
+    private boolean atNewest() {
+        if (bodyScroller == null || bodyScroller.getChildCount() == 0) return true;
+        View content = bodyScroller.getChildAt(0);
+        int slack = content.getBottom() - bodyScroller.getHeight() - bodyScroller.getScrollY();
+        return slack <= (int) (64 * getResources().getDisplayMetrics().density);
+    }
+
     private void sendMessage() {
         final String text = composeText.getText().toString().trim();
         if (text.isEmpty()) return;
@@ -307,6 +358,9 @@ public class CardReaderActivity extends AppCompatActivity {
                     sourceBody = body2;
                     render(body2);
                 }
+                // Always, on your own send: you just wrote it and you are
+                // looking for it, wherever you had scrolled to before.
+                scrollToNewest();
             });
         });
     }
@@ -718,8 +772,12 @@ public class CardReaderActivity extends AppCompatActivity {
             // scroll position out from under a reader mid-message.
             if (b != null) ui.post(() -> {
                 if (b.equals(sourceBody)) return;
+                // Measured BEFORE the new text lands, or the answer is about a
+                // layout the reader has never seen.
+                boolean follow = channelCard && atNewest();
                 sourceBody = b;
                 if (!editing) render(b);
+                if (follow) scrollToNewest();
             });
         });
     }

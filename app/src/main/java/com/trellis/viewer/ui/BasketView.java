@@ -42,6 +42,9 @@ public class BasketView extends View {
 
     private final List<Card> cards = new ArrayList<>();
     private final List<Card.Group> groups = new ArrayList<>();
+    /** The basket canvas's own pattern, or null (desktop v0.168.0). It is the
+     *  largest area in the app and the one a pattern is actually worth on. */
+    private com.trellis.viewer.model.Fill bgFill;
     private float scale = 1f, offsetX = 0f, offsetY = 0f;
     /** Depth: cards projected through a camera rather than drawn flat. */
     private boolean depthMode;
@@ -281,6 +284,15 @@ public class BasketView extends View {
     }
 
     /** Group containers to draw behind their member cards, like the desktop. */
+    /**
+     * The basket's own background pattern, read from the node's {@code bg_fill}.
+     * Null (or an unknown pattern) simply leaves the theme's canvas colour.
+     */
+    public void setBackgroundFill(com.trellis.viewer.model.Fill f) {
+        bgFill = f;
+        invalidate();
+    }
+
     public void setGroups(List<Card.Group> newGroups) {
         groups.clear();
         groups.addAll(newGroups);
@@ -447,6 +459,14 @@ public class BasketView extends View {
             }
             focusPending = 0L;
         }
+        // The basket's own pattern, painted across the VIEWPORT rather than in
+        // canvas space: it is the surface the cards sit on, so it must not pan
+        // and scale away from under them and leave a bare corner behind.
+        if (bgFill != null) {
+            Fills.paint(canvas,
+                    new android.graphics.RectF(0, 0, getWidth(), getHeight()),
+                    0f, bgFill, cSurfaceVariant);
+        }
         canvas.save();
         canvas.translate(offsetX, offsetY);
         canvas.scale(scale, scale);
@@ -545,8 +565,15 @@ public class BasketView extends View {
             if (b == null) continue;
             b.inset(-10f, -10f);
             int[] col = g.color != null ? g.color : DEFAULT_CARD_COLOR;
-            groupFill.setColor(Color.argb(15, col[0], col[1], col[2]));
-            canvas.drawRoundRect(b, 6f, 6f, groupFill);
+            if (g.fill != null) {
+                // A group's pattern replaces its faint tint, as on the desktop.
+                // The header strip below keeps its flat colour, so the name
+                // stays readable against any pattern behind it.
+                Fills.paint(canvas, b, 6f, g.fill, Color.argb(15, col[0], col[1], col[2]));
+            } else {
+                groupFill.setColor(Color.argb(15, col[0], col[1], col[2]));
+                canvas.drawRoundRect(b, 6f, 6f, groupFill);
+            }
             groupStroke.setColor(Color.argb(191, col[0], col[1], col[2]));
             canvas.drawRoundRect(b, 6f, 6f, groupStroke);
             // Header strip above the box, carrying the name.
@@ -765,6 +792,26 @@ public class BasketView extends View {
             accent.setAlpha(90);
             canvas.drawRoundRect(titleRect, 8, 8, accent);
             canvas.drawRect(c.x, c.y + titleH - 8, c.x + c.w, c.y + titleH, accent);
+        }
+
+        // A card's own pattern, over whatever frame the theme just drew: the
+        // title bar, and a band around the border (desktop v0.171.0 — the
+        // border is what makes a pattern readable on a card whose title bar is
+        // mostly text). `color` still drives every stroke, so a card with a
+        // fill is never left without an outline colour.
+        if (c.fill != null) {
+            Fills.paint(canvas, titleRect, 8f, c.fill, acc);
+            canvas.save();
+            android.graphics.Path ring = new android.graphics.Path();
+            ring.addRoundRect(rect, 8f, 8f, android.graphics.Path.Direction.CW);
+            RectF inner = new RectF(rect);
+            inner.inset(2.5f, 2.5f);
+            android.graphics.Path hole = new android.graphics.Path();
+            hole.addRoundRect(inner, 6f, 6f, android.graphics.Path.Direction.CW);
+            ring.op(hole, android.graphics.Path.Op.DIFFERENCE);
+            canvas.clipPath(ring);
+            Fills.paint(canvas, rect, 8f, c.fill, acc);
+            canvas.restore();
         }
 
         titlePaint.setTextSize(13f);

@@ -86,6 +86,7 @@
 
         <activity
             android:name=".CardReaderActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false"/>
 
         <provider
