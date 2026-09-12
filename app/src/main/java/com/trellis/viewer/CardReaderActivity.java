@@ -303,10 +303,29 @@ public class CardReaderActivity extends AppCompatActivity {
      * <p>Posted rather than called straight: the text has just been handed to
      * the TextView and has no height yet this frame, so scrolling now would
      * scroll to where the bottom used to be.
+     *
+     * <p><b>{@code scrollTo}, never {@code fullScroll}.</b> {@code fullScroll}
+     * is not a scroll — it is <em>scroll and move the focus</em>: it looks for a
+     * focusable view inside the bounds it scrolled to and calls
+     * {@code requestFocus()} on it. The card body is focusable in touch mode
+     * (it is {@code textIsSelectable}, so it can be selected and copied), so it
+     * is exactly what that search finds.
+     *
+     * <p>That made the composer impossible to type into. Tapping it focused it,
+     * its focus listener called this to lift the newest message above the
+     * keyboard, and eight milliseconds later {@code fullScroll} handed the focus
+     * to the body — leaving the keyboard up, the caret gone and every keystroke
+     * dropped on the floor by a fallback input connection with no served view.
+     * The keyboard appearing is what made it look like it should work. Operator
+     * report, 2026-09-12; introduced by the scroll-on-focus in v0.47.0.
      */
     private void scrollToNewest() {
         if (bodyScroller == null) return;
-        bodyScroller.post(() -> bodyScroller.fullScroll(View.FOCUS_DOWN));
+        bodyScroller.post(() -> {
+            if (bodyScroller.getChildCount() == 0) return;
+            bodyScroller.scrollTo(0, Math.max(0,
+                    bodyScroller.getChildAt(0).getBottom() - bodyScroller.getHeight()));
+        });
     }
 
     /**
