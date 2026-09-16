@@ -26,6 +26,8 @@ import com.trellis.viewer.util.ThemePrefs;
 import com.trellis.viewer.util.Md;
 import com.trellis.viewer.util.WikiLinks;
 
+import com.trellis.viewer.util.Embeds;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -67,13 +69,25 @@ public class CardReaderActivity extends AppCompatActivity {
     public static final String EXTRA_SOURCE_BODY = "source_body";
     /** Set when the card mirrors a file: its text belongs to the file. */
     public static final String EXTRA_MIRRORED = "mirrored";
+    /**
+     * Set when the card is sealed (append-only, desktop v0.187.0).
+     *
+     * <p>Carried as an extra rather than re-fetched because {@link BasketActivity}
+     * is the only launcher and already has the parsed card in hand — the same
+     * shape {@link #EXTRA_MIRRORED} uses, and for the same reason.
+     */
+    public static final String EXTRA_SEALED = "sealed";
+    /** Set when the card carries a {@code view} — a saved query to run. */
+    public static final String EXTRA_HAS_VIEW = "has_view";
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
 
     private long nodeId, cardId;
     private String kind = "text";
-    private boolean mono, mirrored;
+    private boolean mono, mirrored, sealed;
+    /** This card carries a saved query, so its rows are fetched, not read. */
+    private boolean hasView;
     private String sourceBody = "";
     private final List<Card2Item> items = new ArrayList<>();
 
@@ -131,6 +145,8 @@ public class CardReaderActivity extends AppCompatActivity {
         nodeId = getIntent().getLongExtra(EXTRA_NODE_ID, -1);
         cardId = getIntent().getLongExtra(EXTRA_CARD_ID, -1);
         mirrored = getIntent().getBooleanExtra(EXTRA_MIRRORED, false);
+        sealed = getIntent().getBooleanExtra(EXTRA_SEALED, false);
+        hasView = getIntent().getBooleanExtra(EXTRA_HAS_VIEW, false);
         String k = getIntent().getStringExtra(EXTRA_KIND);
         if (k != null && !k.isEmpty()) kind = k;
         sourceBody = getIntent().getStringExtra(EXTRA_SOURCE_BODY);
@@ -144,8 +160,13 @@ public class CardReaderActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             // A [[link]] in a title reads as its display half here too — the
             // brackets are syntax, and the toolbar is not a place to follow one.
-            getSupportActionBar().setTitle(title == null || title.isEmpty()
-                    ? "Card" : WikiLinks.displayText(title));
+            // **A guard nobody can see is one people trip over**, because the
+            // refusal lands at the moment of an edit that is already written.
+            // The desktop draws a lock in the card's title bar; this is the same
+            // mark in the same place.
+            String shown = title == null || title.isEmpty()
+                    ? "Card" : WikiLinks.displayText(title);
+            getSupportActionBar().setTitle(sealed ? "\uD83D\uDD12 " + shown : shown);
         }
         toolbar.setNavigationOnClickListener(v -> handleBack());
         // The dispatcher, not the deprecated onBackPressed override: predictive
@@ -192,7 +213,14 @@ public class CardReaderActivity extends AppCompatActivity {
             buildChecklist();
         } else {
             render(body);
+            // An embed is a VIEW of another card, so it can only be resolved
+            // against the server — render the body first so the card is
+            // readable immediately, then fill the embeds in when they arrive.
+            expandEmbeds(body);
         }
+        // A saved view computes its rows on read and never stores them, so the
+        // body really is empty and the rows have to be asked for.
+        loadViewRows();
         revealComposerIfChannel();
     }
 
@@ -403,6 +431,262 @@ public class CardReaderActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Resolve {@code ![[#id]]} markers and re-render.
+     *
+     * <p>Off the main thread because each one is a fetch, and after the plain
+     * render rather than instead of it: a card with a slow embed is still
+     * readable while the embed is on its way, and if the server cannot be
+     * reached the card keeps the text it already had.
+     */
+    private void expandEmbeds(String body) {
+        if (!Embeds.present(body) || !ServerPrefs.isConfigured(this)) return;
+        io.execute(() -> {
+            String expanded;
+            try {
+                expanded = Embeds.expand(api(), body);
+            } catch (Exception e) {
+                return;  // leave the markers as text; the card is still readable
+            }
+            final String out = expanded;
+            ui.post(() -> {
+                if (!editing && out != null && !out.equals(body)) render(out);
+            });
+        });
+    }
+
+    /**
+     * A saved view card draws the cards its filters select (desktop v0.128.0).
+     *
+     * <p>The rows are <b>computed on read and never stored</b> — which is the
+     * point of the feature, since a view cannot go stale — so the card's body is
+     * genuinely empty and the phone showed nothing at all. They come from
+     * {@code GET /api/cards/{cid}/run}, rendered as a table with the card's own
+     * title column first, the way the desktop lays it out.
+     */
+    private void loadViewRows() {
+        if (!hasView || cardId < 0 || !ServerPrefs.isConfigured(this)) return;
+        io.execute(() -> {
+            String md;
+            try {
+                md = viewRowsMarkdown(api().viewRows(cardId));
+            } catch (Exception e) {
+                md = "*⟨could not run this view — " + msg(e) + "⟩*";
+            }
+            final String out = md;
+            ui.post(() -> {
+                if (editing) return;
+                bodyScroll.setVisibility(View.VISIBLE);
+                render(out);
+            });
+        });
+    }
+
+    /** The {@code /run} answer as a Markdown table. */
+    private String viewRowsMarkdown(JSONObject run) {
+        final JSONArray cols = run.optJSONArray("columns");
+        final JSONArray rows = run.optJSONArray("rows");
+        final int n = rows == null ? 0 : rows.length();
+        if (n == 0) return "*⟨this view selects no cards⟩*";
+        final StringBuilder b = new StringBuilder();
+        b.append("| Card |");
+        for (int i = 0; cols != null && i < cols.length(); i++) {
+            b.append(' ').append(cols.optString(i)).append(" |");
+        }
+        b.append("\n|---|");
+        for (int i = 0; cols != null && i < cols.length(); i++) b.append("---|");
+        b.append('\n');
+        for (int r = 0; r < n; r++) {
+            final JSONObject row = rows.optJSONObject(r);
+            if (row == null) continue;
+            // The title is a link to the card, so a view is navigable and not
+            // merely a report — the same thing the desktop's rows do.
+            b.append("| [[#").append(row.optLong("card")).append('|')
+             .append(row.optString("title", "(untitled)").replace("|", "\\|"))
+             .append("]] |");
+            final JSONArray vals = row.optJSONArray("values");
+            for (int i = 0; cols != null && i < cols.length(); i++) {
+                b.append(' ').append(vals == null ? "" : vals.optString(i, ""))
+                 .append(" |");
+            }
+            b.append('\n');
+        }
+        b.append("\n*").append(n).append(n == 1 ? " card" : " cards")
+         .append(", computed now — a view is never stored.*");
+        return b.toString();
+    }
+
+    /**
+     * The files riding on this card (desktop v0.123.0).
+     *
+     * <p>An attachment carries its <b>bytes in the document</b>, not a path —
+     * which is the whole reason it works here at all: a path would be worthless
+     * the moment the notes were opened on a phone. The listing gives names and
+     * sizes and never bytes, so a card with a 40 MB file costs nothing to list;
+     * only a tap fetches one.
+     */
+    private void showAttachments() {
+        io.execute(() -> {
+            JSONArray list = null;
+            String err = null;
+            try {
+                list = api().attachments(cardId).optJSONArray("attachments");
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final JSONArray l = list;
+            final String e2 = err;
+            ui.post(() -> {
+                if (e2 != null) { toast(e2); return; }
+                if (l == null || l.length() == 0) {
+                    toast(getString(R.string.no_attachments));
+                    return;
+                }
+                final CharSequence[] labels = new CharSequence[l.length()];
+                for (int i = 0; i < l.length(); i++) {
+                    JSONObject a = l.optJSONObject(i);
+                    // The listing calls it `bytes`, not `size` — verified against
+                    // a live instance rather than assumed, after this read `size`
+                    // and every file showed as 0 B.
+                    labels[i] = (a == null ? "?" : a.optString("name", "file"))
+                            + "  (" + readableSize(a == null ? 0 : a.optLong("bytes")) + ")";
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.files_on_card)
+                        .setItems(labels, (d, which) -> openAttachment(which,
+                                l.optJSONObject(which) == null ? "file"
+                                        : l.optJSONObject(which).optString("name", "file")))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            });
+        });
+    }
+
+    /** Fetch one file, write it to the cache and hand it to whatever opens it. */
+    private void openAttachment(int idx, String name) {
+        toast(getString(R.string.opening, name));
+        io.execute(() -> {
+            String err = null;
+            android.net.Uri uri = null;
+            try {
+                byte[] bytes = android.util.Base64.decode(
+                        api().attachmentBase64(cardId, idx), android.util.Base64.DEFAULT);
+                java.io.File f = new java.io.File(
+                        com.trellis.viewer.util.CaptureFiles.dir(this), safeName(name));
+                try (java.io.FileOutputStream os = new java.io.FileOutputStream(f)) {
+                    os.write(bytes);
+                }
+                uri = androidx.core.content.FileProvider.getUriForFile(
+                        this, getPackageName() + ".fileprovider", f);
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final String e2 = err;
+            final android.net.Uri u = uri;
+            ui.post(() -> {
+                if (e2 != null) { toast(e2); return; }
+                android.content.Intent view = new android.content.Intent(
+                        android.content.Intent.ACTION_VIEW);
+                view.setDataAndType(u, guessType(name));
+                view.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                try {
+                    startActivity(android.content.Intent.createChooser(
+                            view, getString(R.string.files_on_card)));
+                } catch (Exception e) {
+                    toast(getString(R.string.no_app_for, name));
+                }
+            });
+        });
+    }
+
+    /** A file name safe to write into the cache, keeping the extension that picks an app. */
+    private static String safeName(String name) {
+        String n = name == null || name.isEmpty() ? "file" : name;
+        return n.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    /** Best-effort MIME from the extension; the chooser copes when it is wrong. */
+    private static String guessType(String name) {
+        String ext = android.webkit.MimeTypeMap.getFileExtensionFromUrl(
+                android.net.Uri.encode(name == null ? "" : name));
+        String t = ext == null ? null
+                : android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+                        ext.toLowerCase(java.util.Locale.ROOT));
+        return t == null ? "*/*" : t;
+    }
+
+    private static String readableSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024.0) + " KB";
+        return String.format(java.util.Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    /**
+     * Cards that NAME this one without linking to it (desktop v0.140.0).
+     *
+     * <p>The mirror of backlinks, and every row is worth turning into a link —
+     * which is why it is a list of places to go rather than a count. Whole-word,
+     * never inside code, and anything that already links is excluded, so the
+     * list is short by construction.
+     */
+    private void showMentions() {
+        cardList(() -> api().mentions(cardId).optJSONArray("mentions"),
+                R.string.unlinked_mentions, R.string.no_mentions);
+    }
+
+    /**
+     * This card's neighbourhood by link distance (desktop v0.141.0).
+     *
+     * <p>Both directions, breadth-first. The phone's existing graph is
+     * whole-document, which is unreadable on a phone once a document has a
+     * thousand cards; this is the one card you are looking at and what sits next
+     * to it.
+     */
+    private void showNearby() {
+        cardList(() -> api().cardGraph(cardId, 2).optJSONArray("cards"),
+                R.string.nearby_cards, R.string.no_mentions);
+    }
+
+    /** Shared shape: fetch a list of card rows, show them, open the one tapped. */
+    private interface Rows { JSONArray get() throws Exception; }
+
+    private void cardList(Rows rows, int titleRes, int emptyRes) {
+        io.execute(() -> {
+            JSONArray list = null;
+            String err = null;
+            try {
+                list = rows.get();
+            } catch (Exception e) {
+                err = msg(e);
+            }
+            final JSONArray l = list;
+            final String e2 = err;
+            ui.post(() -> {
+                if (e2 != null) { toast(e2); return; }
+                if (l == null || l.length() == 0) { toast(getString(emptyRes)); return; }
+                final CharSequence[] labels = new CharSequence[l.length()];
+                final long[] ids = new long[l.length()];
+                for (int i = 0; i < l.length(); i++) {
+                    JSONObject o = l.optJSONObject(i);
+                    if (o == null) { labels[i] = "?"; continue; }
+                    ids[i] = o.optLong("card", o.optLong("id"));
+                    String where = o.optString("node_title", "");
+                    labels[i] = WikiLinks.displayText(o.optString("title", "(untitled)"))
+                            + (where.isEmpty() ? "" : "\n" + where);
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(titleRes)
+                        .setItems(labels, (d, which) -> {
+                            if (ids[which] > 0) {
+                                WikiLinks.follow(this, WikiLinks.SCHEME + "#" + ids[which]);
+                            }
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            });
+        });
+    }
+
     private void render(String body) {
         if (mono) {
             // Verbatim: don't wrap long lines — let the HorizontalScrollView pan
@@ -451,6 +735,17 @@ public class CardReaderActivity extends AppCompatActivity {
             cb.setPaddingRelative(cb.getPaddingStart(), dp(10), 0, dp(10));
             Md.create(this).setMarkdown(cb, WikiLinks.toMarkdown(it.text));
             cb.setOnClickListener(v -> {
+                // **Ticking a line changes the record**, so the desktop refuses
+                // it on a sealed card with a 409. Left clickable rather than
+                // disabled on purpose: a greyed-out box says "not now" and
+                // explains nothing, while a box that springs back with the
+                // reason teaches what a seal is. The line is still readable and
+                // its `due::` still reaches the Agenda.
+                if (sealed) {
+                    cb.setChecked(it.done);
+                    toast(getString(R.string.sealed_card));
+                    return;
+                }
                 boolean want = cb.isChecked();
                 cb.setEnabled(false);
                 io.execute(() -> {
@@ -487,12 +782,23 @@ public class CardReaderActivity extends AppCompatActivity {
         // Only text and code have a body the phone can sensibly edit. A table is
         // a grid and a sketch is strokes; offering "Edit" on either would open an
         // editor for something it cannot represent.
-        boolean editable = addressable && !mirrored
+        // **`sealed` sits beside `mirrored` because they are the same kind of
+        // fact**: the desktop refuses the write, so the phone does not offer it.
+        // `action_status` is deliberately NOT gated — SETTING a property is
+        // exactly how a sealed record is filed (`status:: done`), and a set that
+        // finds no existing line appends, which is what append-only means.
+        // Clearing one is refused, and the phone has never offered a clear.
+        boolean editable = addressable && !mirrored && !sealed
                 && ("text".equals(kind) || "code".equals(kind));
         menu.findItem(R.id.action_edit).setVisible(editable && !editing);
         menu.findItem(R.id.action_save).setVisible(editing);
         menu.findItem(R.id.action_status).setVisible(addressable && !editing);
         menu.findItem(R.id.action_card_backlinks).setVisible(cardId >= 0 && !editing);
+        // Files, mentions and the local graph are all card-addressed reads, so
+        // they need the card id and nothing else.
+        menu.findItem(R.id.action_attachments).setVisible(cardId >= 0 && !editing);
+        menu.findItem(R.id.action_mentions).setVisible(cardId >= 0 && !editing);
+        menu.findItem(R.id.action_card_graph).setVisible(cardId >= 0 && !editing);
         // A channel is a field on an ordinary card, so any addressable card can
         // become one. Hidden while editing, like everything else that writes.
         menu.findItem(R.id.action_channel).setVisible(addressable && !editing);
@@ -525,6 +831,18 @@ public class CardReaderActivity extends AppCompatActivity {
             pickStatus();
             return true;
         }
+        if (id == R.id.action_attachments) {
+            showAttachments();
+            return true;
+        }
+        if (id == R.id.action_mentions) {
+            showMentions();
+            return true;
+        }
+        if (id == R.id.action_card_graph) {
+            showNearby();
+            return true;
+        }
         if (id == R.id.action_page_toggle) {
             showPage(!showingPage);
             return true;
@@ -541,6 +859,10 @@ public class CardReaderActivity extends AppCompatActivity {
     }
 
     private void startEditing() {
+        if (sealed) {
+            toast(getString(R.string.sealed_card));
+            return;
+        }
         if (mirrored) {
             toast(getString(R.string.mirrored_card));
             return;

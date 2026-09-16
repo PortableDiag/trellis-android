@@ -32,7 +32,31 @@
     <string name="status_cleared">Status removed</string>
     <string name="clear_status">Clear status</string>
     <string name="read_only_card">%1$s cards are read-only on the phone — edit on the desktop</string>
+    <!-- A notification outlived the server it was raised against. -->
+    <string name="notification_server_gone">That notification came from %1$s, which is no longer configured</string>
+    <string name="open_as_cube">Open as cube…</string>
+    <string name="cube_of">Cube — %1$s</string>
+    <string name="cube_slice">Slice %1$d of %2$d   ·   %3$s</string>
+    <string name="cube_empty">Nothing under this basket to stack</string>
+    <string name="sketch_undo">Undo last stroke</string>
+    <string name="sketch_clear">Clear the sketch</string>
+    <string name="claims">Claims</string>
+    <string name="claims_all">Show current ones too</string>
+    <string name="claims_none_stale">Nothing is stale — every claim is current as of its check date</string>
+    <string name="claims_none">No card in this document carries a verify:: date</string>
+    <string name="claims_failed">Couldn\'t load claims.\n\n%1$s</string>
+    <string name="not_connected">Not connected. Set your workstation in Settings first.</string>
+    <string name="files_on_card">Files on this card</string>
+    <string name="unlinked_mentions">Unlinked mentions</string>
+    <string name="nearby_cards">Nearby cards</string>
+    <string name="opening">Opening %1$s…</string>
+    <string name="no_app_for">Nothing on this phone opens %1$s</string>
+    <string name="no_attachments">No files ride on this card</string>
+    <string name="no_mentions">Nothing names this card without linking to it</string>
     <string name="mirrored_card">This card mirrors a file, so its text belongs to the file</string>
+    <!-- A sealed (append-only) card. Says what is still possible, because most
+         of it is: only what is already written is fixed. -->
+    <string name="sealed_card">This card is sealed: what it already says cannot change. You can still add to it, and still set a property.</string>
     <string name="discard_changes">Discard changes?</string>
     <string name="discard">Discard</string>
     <string name="keep_editing">Keep editing</string>
@@ -47,4 +71,8 @@
 
     <!-- Backlinks (v0.31.0) -->
     <string name="links_here">What links here</string>
+    <plurals name="claims_stale">
+        <item quantity="one">%d stale</item>
+        <item quantity="other">%d stale</item>
+    </plurals>
 </resources>

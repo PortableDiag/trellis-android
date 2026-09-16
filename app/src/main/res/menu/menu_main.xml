@@ -30,6 +30,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_claims"
+        android:title="@string/claims"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_tags"
         android:title="Tags"
         app:showAsAction="never"/>

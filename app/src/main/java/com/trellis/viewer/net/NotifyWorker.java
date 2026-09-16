@@ -197,6 +197,17 @@ public class NotifyWorker extends Worker {
                 ? "An agent changed a card"
                 : "An agent made " + titles.size() + " changes";
         final Intent tap = new Intent(ctx, BasketActivity.class);
+        // **A bare id is not an address when the app can talk to more than one
+        // document.** This is the only intent in the app that outlives its
+        // session: it sits in the notification shade as a PendingIntent across a
+        // server switch and across app restarts, and `BasketActivity` used to
+        // resolve its node id against whatever server was active WHEN THE TAP
+        // LANDED. Seen in the desktop's own API error logs on 2026-09-04/05 —
+        // the phone asking each instance for a node belonging to the other
+        // document, authenticating fine and getting a 404. The far worse case is
+        // silent: a number that happens to exist in both documents opens an
+        // unrelated basket and looks like it worked.
+        tap.putExtra(BasketActivity.EXTRA_SERVER, ServerPrefs.baseUrl(ctx));
         if (node != 0) {
             tap.putExtra(BasketActivity.EXTRA_NODE_ID, node);
             // Land on the card itself where there is one — the whole advantage a

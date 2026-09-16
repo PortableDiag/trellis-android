@@ -206,6 +206,63 @@ public class TrellisApi {
         return new JSONObject(getCached("/kanban"));
     }
 
+    /**
+     * GET /cards/{cid}/run — the rows a saved-view card selects.
+     *
+     * <p>Computed on read and never stored, which is why the card's body is
+     * empty and this call is the only way to see them: a view cannot go stale.
+     * Not cached for offline for the same reason — a remembered answer would be
+     * exactly the stale thing the design refuses.
+     */
+    public JSONObject viewRows(long cardId) throws IOException, JSONException {
+        return new JSONObject(get("/cards/" + cardId + "/run"));
+    }
+
+    /** GET /cards/{cid}/attachments — files riding on a card: names and sizes, never bytes. */
+    public JSONObject attachments(long cardId) throws IOException, JSONException {
+        return new JSONObject(get("/cards/" + cardId + "/attachments"));
+    }
+
+    /**
+     * GET /cards/{cid}/attachments/{idx} — one file's BYTES, base64.
+     *
+     * <p>A file rides on a card <em>in the document</em>, not as a path: a path is
+     * worthless once the notes are opened on a phone, which is exactly where this
+     * runs.
+     */
+    public String attachmentBase64(long cardId, int idx) throws IOException, JSONException {
+        return new JSONObject(get("/cards/" + cardId + "/attachments/" + idx))
+                .optString("base64", "");
+    }
+
+    /**
+     * POST /nodes/{id}/cards/{cid}/sketch — one drawing operation.
+     *
+     * <p><b>One op per request, by the API's design</b>, which suits a finger:
+     * a stroke is finished when the finger lifts, and that is exactly when it is
+     * sent. {@code add_stroke} takes points in the card's own local coordinates,
+     * so what is drawn here lands where it was drawn on the desktop.
+     */
+    public JSONObject sketchOp(long node, long card, JSONObject op)
+            throws IOException, JSONException {
+        return post("/nodes/" + node + "/cards/" + card + "/sketch", op);
+    }
+
+    /** GET /claims — cards asserting state, worst bucket first (desktop v0.110.0). */
+    public JSONObject claims(boolean expiredOnly) throws IOException, JSONException {
+        return new JSONObject(get("/claims" + (expiredOnly ? "?expired=true" : "")));
+    }
+
+    /** GET /cards/{cid}/mentions — cards that NAME this one without linking to it. */
+    public JSONObject mentions(long cardId) throws IOException, JSONException {
+        return new JSONObject(get("/cards/" + cardId + "/mentions"));
+    }
+
+    /** GET /cards/{cid}/graph?depth= — one card's neighbourhood by link distance. */
+    public JSONObject cardGraph(long cardId, int depth) throws IOException, JSONException {
+        return new JSONObject(get("/cards/" + cardId + "/graph?depth=" + depth));
+    }
+
     /** GET /search?q= — full-text search; returns {@code {hits:[{node,node_title,snippet}]}}. */
     public JSONObject search(String query) throws IOException, JSONException {
         String q = java.net.URLEncoder.encode(query, "UTF-8");

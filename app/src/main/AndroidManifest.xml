@@ -68,6 +68,18 @@
             android:exported="false"/>
 
         <activity
+            android:name=".ClaimsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".SketchActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".CubeActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".TagsActivity"
             android:exported="false"/>
 

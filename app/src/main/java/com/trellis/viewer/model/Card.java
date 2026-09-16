@@ -60,6 +60,28 @@ public class Card {
     public boolean htmlRendered;
     /** The body changed since the picture was taken. */
     public boolean htmlStale;
+    /**
+     * Sealed: what this card already says can never change again (desktop
+     * v0.187.0). Adding still works — an append, a new checklist line, a table
+     * row, a channel message — and tags, colour, presentation and <em>setting</em>
+     * a property stay writable, so a finished record can still be filed
+     * {@code status:: done}. Everything that rewrites or removes what is there is
+     * a <b>409</b>.
+     *
+     * <p>The desktop enforces this; the phone reads it so it does not offer an
+     * edit the server will refuse. It is never unset from here — over the API
+     * {@code append_only: false} is a 403, and only the operator can unseal, from
+     * the desktop card menu.
+     */
+    public boolean appendOnly;
+    /**
+     * This card carries a saved query (desktop v0.128.0). The rows are computed
+     * on read and never stored — so there is nothing here but the fact that they
+     * exist, and the reader asks for them.
+     */
+    public boolean hasView;
+    /** How many files ride on this card, from the listing's count. */
+    public int attachmentCount;
     /** The card this one is docked to (stuck to, moves with), or 0. */
     public long dockedTo;
     /** The group container this card belongs to, or 0. Group ids are their own
@@ -114,6 +136,10 @@ public class Card {
         c.kind = o.optString("kind", "text");
         c.color = rgb(o.optJSONArray("color"));
         c.fill = Fill.from(o.optJSONObject("fill"));
+        c.appendOnly = o.optBoolean("append_only", false);
+        c.hasView = o.optJSONObject("view") != null;
+        JSONArray atts = o.optJSONArray("attachments");
+        c.attachmentCount = atts == null ? 0 : atts.length();
         c.dockedTo = o.optLong("docked_to", 0);
         c.groupId = o.optLong("group", 0);
 

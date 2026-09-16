@@ -46,6 +46,16 @@ public class BasketActivity extends AppCompatActivity {
     /** Optional: a card to centre on and flash once the basket loads. Set when
      *  arriving from a {@code [[#id]]} link, where the basket is not the answer. */
     public static final String EXTRA_FOCUS_CARD = "focus_card";
+    /**
+     * The server a node id was read from, as a base URL.
+     *
+     * <p>Set by {@link com.trellis.viewer.net.NotifyWorker} on the one intent
+     * that outlives its session. Every other launcher passes an id it read from
+     * the active server moments earlier, in the same session, so none of them
+     * needs this — and absent means exactly that: resolve against whatever is
+     * active, as before.
+     */
+    public static final String EXTRA_SERVER = "server";
 
     private static final long POLL_MS = 3000;
 
@@ -89,6 +99,26 @@ public class BasketActivity extends AppCompatActivity {
         // Android 15 lays every app out edge-to-edge; keep our content
         // out from under the status and navigation bars.
         SystemBars.fit(findViewById(android.R.id.content));
+
+        // **Honour the server the id was read from, before anything loads.**
+        // Tapping a notification MEANS "take me there", so switching the active
+        // server is the intent, not a side effect. If that workstation is no
+        // longer configured, say so plainly rather than resolving the id against
+        // the wrong document — a 404 is the lucky outcome; a number that exists
+        // in both opens an unrelated basket and looks like it worked.
+        final String fromServer = getIntent().getStringExtra(EXTRA_SERVER);
+        if (fromServer != null && !fromServer.isEmpty()
+                && !fromServer.equals(ServerPrefs.baseUrl(this))) {
+            int idx = ServerPrefs.indexOfBaseUrl(this, fromServer);
+            if (idx >= 0) {
+                ServerPrefs.setActive(this, idx);
+            } else {
+                toast(getString(R.string.notification_server_gone,
+                        ServerPrefs.hostOf(fromServer)));
+                finish();
+                return;
+            }
+        }
 
         nodeId = getIntent().getLongExtra(EXTRA_NODE_ID, -1);
         String title = getIntent().getStringExtra(EXTRA_NODE_TITLE);
@@ -301,6 +331,15 @@ public class BasketActivity extends AppCompatActivity {
             startActivity(i);
             return true;
         }
+        if (id == R.id.action_cube) {
+            // The children of THIS basket become the slices — which is what the
+            // desktop's "Open as cube…" offers from a basket's own menu.
+            Intent i2 = new Intent(this, CubeActivity.class);
+            i2.putExtra(CubeActivity.EXTRA_NODE_ID, nodeId);
+            i2.putExtra(CubeActivity.EXTRA_TITLE, thisNodeTitle);
+            startActivity(i2);
+            return true;
+        }
         if (id == R.id.action_time) {
             final boolean on = !item.isChecked();
             com.trellis.viewer.util.Hypercube.setTimeMode(this, on);
@@ -316,6 +355,19 @@ public class BasketActivity extends AppCompatActivity {
     }
 
     private void openCardReader(Card card) {
+        // **A sketch is not prose, so it does not open in the reader.** It used
+        // to, and showed a blank body — a sketch card has no `body` at all, its
+        // content is its strokes. It now opens on a surface that can draw them,
+        // and be drawn on.
+        if ("sketch".equals(card.kind)) {
+            Intent sk = new Intent(this, SketchActivity.class);
+            sk.putExtra(SketchActivity.EXTRA_NODE_ID, nodeId);
+            sk.putExtra(SketchActivity.EXTRA_CARD_ID, card.id);
+            sk.putExtra(SketchActivity.EXTRA_TITLE, card.title);
+            sk.putExtra(SketchActivity.EXTRA_SEALED, card.appendOnly);
+            startActivity(sk);
+            return;
+        }
         String body;
         boolean mono;
         switch (card.kind) {
@@ -336,6 +388,8 @@ public class BasketActivity extends AppCompatActivity {
         i.putExtra(CardReaderActivity.EXTRA_KIND, card.kind);
         i.putExtra(CardReaderActivity.EXTRA_SOURCE_BODY, card.body);
         i.putExtra(CardReaderActivity.EXTRA_MIRRORED, !card.source.isEmpty());
+        i.putExtra(CardReaderActivity.EXTRA_SEALED, card.appendOnly);
+        i.putExtra(CardReaderActivity.EXTRA_HAS_VIEW, card.hasView);
         if ("checklist".equals(card.kind)) {
             i.putExtra(CardReaderActivity.EXTRA_ITEMS, checklistJson(card));
         }
@@ -434,11 +488,16 @@ public class BasketActivity extends AppCompatActivity {
             java.util.List<BasketView.Projected> projected = new java.util.ArrayList<>();
             boolean feed = false;
             com.trellis.viewer.model.Fill bg = null;
+            String style = null;
             String error = null;
             try {
                 org.json.JSONObject nodeJson = api.node(nodeId);
                 feed = nodeJson.optBoolean("feed", false);
                 bg = com.trellis.viewer.model.Fill.from(nodeJson.optJSONObject("bg_fill"));
+                // A basket's own card style (desktop v0.169.0). A DOCUMENT
+                // field, so it travels — unlike the app theme, which belongs to
+                // this phone. Absent means "follow the theme".
+                style = nodeJson.isNull("style") ? null : nodeJson.optString("style", null);
                 cards = Card.parseCards(nodeJson);
                 groups = Card.parseGroups(nodeJson);
                 // Time stands down in a feed like Depth does, so the projections
@@ -453,6 +512,7 @@ public class BasketActivity extends AppCompatActivity {
             final java.util.List<BasketView.Projected> proj = projected;
             final boolean fd = feed;
             final com.trellis.viewer.model.Fill bgf = bg;
+            final String styl = style;
             final String err = error;
             final boolean fromCache = api.lastFromCache();
             ui.post(() -> {
@@ -470,6 +530,7 @@ public class BasketActivity extends AppCompatActivity {
                         feedActive = fd;
                         invalidateOptionsMenu(); // Depth/Time enable state follows the flag
                     }
+                    basket.setDocumentStyle(styl);  // before the cards are laid out
                     basket.setBackgroundFill(bgf);
                     basket.setFeed(fd); // before setCards — the layout applies as they arrive
                     basket.setDepthMode(com.trellis.viewer.util.Hypercube.depthMode(this));

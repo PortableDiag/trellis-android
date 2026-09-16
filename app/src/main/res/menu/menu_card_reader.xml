@@ -31,4 +31,19 @@
         android:id="@+id/action_card_backlinks"
         android:title="@string/links_here"
         app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_attachments"
+        android:title="@string/files_on_card"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_mentions"
+        android:title="@string/unlinked_mentions"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_card_graph"
+        android:title="@string/nearby_cards"
+        app:showAsAction="never"/>
 </menu>

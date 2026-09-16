@@ -371,6 +371,33 @@ public class ServerPrefs {
     }
 
     /** Base API URL of the active server, e.g. {@code http://192.168.0.101:7373/api}. */
+    /**
+     * The index of the configured server with this base URL, or -1.
+     *
+     * <p>**A base URL, not an index, is what an address outlives a session as.**
+     * An index shifts the moment the operator removes a server above it, and the
+     * one intent in this app that outlives its session — a notification's
+     * {@code PendingIntent}, which sits in the shade across server switches and
+     * app restarts — would then resolve to a different document with no symptom
+     * but the wrong content.
+     */
+    public static int indexOfBaseUrl(Context c, String url) {
+        if (url == null || url.isEmpty()) return -1;
+        List<Server> all = servers(c);
+        for (int i = 0; i < all.size(); i++) {
+            if (url.equals(all.get(i).baseUrl())) return i;
+        }
+        return -1;
+    }
+
+    /** The {@code host:port} out of a base URL, for a message meant to be read. */
+    public static String hostOf(String baseUrl) {
+        if (baseUrl == null) return "";
+        String s = baseUrl.replaceFirst("^https?://", "");
+        int slash = s.indexOf('/');
+        return slash < 0 ? s : s.substring(0, slash);
+    }
+
     public static String baseUrl(Context c) {
         Server s = active(c);
         return s == null ? "http://:" + DEFAULT_PORT + "/api" : s.baseUrl();

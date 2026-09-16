@@ -19,6 +19,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_cube"
+        android:title="@string/open_as_cube"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_backlinks"
         android:title="@string/links_here"
         app:showAsAction="never"/>

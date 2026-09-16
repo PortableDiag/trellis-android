@@ -189,6 +189,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_kanban) {
             startActivity(new Intent(this, KanbanActivity.class));
             return true;
+        } else if (id == R.id.action_claims) {
+            startActivity(new Intent(this, ClaimsActivity.class));
+            return true;
         } else if (id == R.id.action_tags) {
             startActivity(new Intent(this, TagsActivity.class));
             return true;
@@ -417,9 +420,18 @@ public class MainActivity extends AppCompatActivity {
 
     /** Same namespacing as the folds: a row is a node, and node ids are
      *  per-document, so the saved place belongs to one workstation. */
+    /**
+     * The remembered tree position, namespaced by server — <b>always</b>.
+     *
+     * <p>It used to fall back to the bare key while only one server was
+     * configured, which is the same class of bug as the notification's bare node
+     * id: the position is saved under one name, a second server is added, and
+     * the key changes shape underneath a value already written. The first
+     * document's remembered node id is then read back for the second — a node id
+     * from the wrong document, which is exactly what this app must stop doing.
+     * Namespacing unconditionally costs one hash and cannot go wrong.
+     */
     private String scrollKey(String base) {
-        java.util.List<ServerPrefs.Server> all = ServerPrefs.servers(this);
-        if (all.size() <= 1) return base;
         return base + "_" + Integer.toHexString(ServerPrefs.baseUrl(this).hashCode());
     }
 

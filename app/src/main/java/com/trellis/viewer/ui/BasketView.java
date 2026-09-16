@@ -57,8 +57,17 @@ public class BasketView extends View {
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
     /** Theme-specific card rendering (Sticky = one solid color; Futuristic = beveled). */
     private final int cLink;
-    private final boolean stickyTheme, futuristicTheme, glowTheme;
-    private final boolean blueprintTheme, silkscreenTheme, phosphorTheme;
+    /**
+     * The card style in force. Not final: a BASKET may declare its own
+     * (desktop v0.169.0), and unlike the app theme that is a <b>document</b>
+     * field, so it travels with the notes instead of belonging to this phone.
+     * A basket that names one overrides the app theme's card style for as long
+     * as it is open; {@code null} follows the theme, as before.
+     */
+    private boolean stickyTheme, futuristicTheme, glowTheme;
+    private boolean blueprintTheme, silkscreenTheme, phosphorTheme;
+    /** The app-wide choice, kept so a basket with no style of its own restores it. */
+    private final String themeAccent;
     private static final int STICKY_YELLOW = Color.rgb(0xff, 0xe9, 0x6b);
     private static final int[] DEFAULT_CARD_COLOR = {0x3b, 0x82, 0xf6};
     private static final float BEVEL = 18f; // Futuristic corner-cut (bigger = more skewed)
@@ -165,16 +174,8 @@ public class BasketView extends View {
         cOutline = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorOutline, Color.GRAY);
         cLink = MaterialColors.getColor(ctx, com.google.android.material.R.attr.colorPrimary, Color.CYAN);
 
-        String themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
-        stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(themeAccent);
-        futuristicTheme = com.trellis.viewer.util.ThemePrefs.FUTURISTIC.equals(themeAccent);
-        blueprintTheme = com.trellis.viewer.util.ThemePrefs.BLUEPRINT.equals(themeAccent);
-        silkscreenTheme = com.trellis.viewer.util.ThemePrefs.SILKSCREEN.equals(themeAccent);
-        phosphorTheme = com.trellis.viewer.util.ThemePrefs.PHOSPHOR.equals(themeAccent);
-        // The radiant themes get an accent glow behind each card.
-        glowTheme = futuristicTheme
-                || com.trellis.viewer.util.ThemePrefs.SYNTHWAVE.equals(themeAccent)
-                || phosphorTheme;
+        themeAccent = com.trellis.viewer.util.ThemePrefs.accent(ctx);
+        applyCardStyle(themeAccent);
 
         glow.setStyle(Paint.Style.STROKE);
         stroke.setStyle(Paint.Style.STROKE);
@@ -816,6 +817,13 @@ public class BasketView extends View {
 
         titlePaint.setTextSize(13f);
         String title = c.title.isEmpty() ? c.kind : c.title;
+        // **A sealed card wears its lock on the canvas too**, not only in the
+        // reader. The desktop draws one in the title bar, and the point of it is
+        // that the guard is visible BEFORE an edit is attempted — a refusal that
+        // arrives after the typing is the thing this mark exists to prevent.
+        // Prefixed into the title string so it travels through the same
+        // wiki-link segmenting, ellipsizing and clipping as everything else.
+        if (c.appendOnly) title = "\uD83D\uDD12 " + title;
         canvas.save();
         // Silkscreen's pin-1 pad sits exactly where a title starts, so the
         // legend clears it — the same indent the desktop applies.
@@ -922,6 +930,40 @@ public class BasketView extends View {
      * coordinates, so the tap test costs nothing extra and cannot disagree with
      * what was painted.
      */
+    /**
+     * Adopt the style a BASKET declares, or fall back to the app theme.
+     *
+     * <p>Desktop v0.169.0 put {@code style} on the node — {@code normal},
+     * {@code sticky}, {@code futuristic}, {@code blueprint}, {@code silkscreen}
+     * or {@code phosphor} — and made it a <b>document</b> field precisely so a
+     * reader can tell two projects apart however they opened them. The phone
+     * ignored it entirely and painted every basket in the app-wide choice, so a
+     * workspace styled to be distinguishable was not.
+     *
+     * <p>{@code normal} is a real value and means "plain", not "unset": it turns
+     * the theme's card style off for this basket rather than falling through to
+     * it. Null or empty is unset.
+     */
+    public void setDocumentStyle(String docStyle) {
+        applyCardStyle(docStyle == null || docStyle.isEmpty() ? themeAccent : docStyle);
+        invalidate();
+    }
+
+    /** Set the six style flags from one name. Unknown names fall to plain. */
+    private void applyCardStyle(String accent) {
+        stickyTheme = com.trellis.viewer.util.ThemePrefs.STICKY.equals(accent);
+        futuristicTheme = com.trellis.viewer.util.ThemePrefs.FUTURISTIC.equals(accent);
+        blueprintTheme = com.trellis.viewer.util.ThemePrefs.BLUEPRINT.equals(accent);
+        silkscreenTheme = com.trellis.viewer.util.ThemePrefs.SILKSCREEN.equals(accent);
+        phosphorTheme = com.trellis.viewer.util.ThemePrefs.PHOSPHOR.equals(accent);
+        // The radiant themes get an accent glow behind each card. `synthwave` is
+        // an app theme only — a document `style` cannot name it — so this reads
+        // the same either way.
+        glowTheme = futuristicTheme
+                || com.trellis.viewer.util.ThemePrefs.SYNTHWAVE.equals(accent)
+                || phosphorTheme;
+    }
+
     private void drawTitleRuns(Canvas canvas, Card c, String title, float inset, float titleH) {
         final java.util.List<com.trellis.viewer.util.WikiLinks.Seg> segs =
                 com.trellis.viewer.util.WikiLinks.segments(title);
@@ -1364,11 +1406,15 @@ public class BasketView extends View {
                 imageTapListener.tapped(c);
                 return true;
             }
-            // Text/code/checklist/table cards clip on the canvas — tap to read
-            // the whole thing (sketches and images are handled separately).
+            // Tap to open the card. **`sketch` was missing from this list**, and
+            // the comment here said sketches were "handled separately" — they
+            // were not handled at all, which is precisely why they were
+            // view-only on the phone: there was no gesture that could reach one.
+            // An image really is handled separately, just above.
             if (cardTapListener != null
                     && ("text".equals(c.kind) || "code".equals(c.kind)
-                        || "checklist".equals(c.kind) || "table".equals(c.kind))) {
+                        || "checklist".equals(c.kind) || "table".equals(c.kind)
+                        || "sketch".equals(c.kind))) {
                 cardTapListener.tapped(c);
                 return true;
             }
