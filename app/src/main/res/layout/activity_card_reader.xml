@@ -19,7 +19,7 @@
     <!-- 0dp + weight, not match_parent: in a vertical LinearLayout a
          match_parent child takes every remaining pixel, which left the compose
          bar below with nothing and made it invisible even when shown. -->
-    <ScrollView
+    <com.trellis.viewer.ui.ReaderScrollView
         android:id="@+id/body_scroller"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -89,7 +89,7 @@
                 android:hint="@string/card_body_hint"
                 android:visibility="gone"/>
         </LinearLayout>
-    </ScrollView>
+    </com.trellis.viewer.ui.ReaderScrollView>
 
     <!-- Channel compose bar. Hidden unless this card is a channel.
          A channel exists so the operator can talk to an agent from the sofa,

@@ -95,7 +95,7 @@ public class CardReaderActivity extends AppCompatActivity {
     private EditText editor;
     private View bodyScroll;
     /** The vertical scroller the body sits in — a channel is read at its end. */
-    private android.widget.ScrollView bodyScroller;
+    private com.trellis.viewer.ui.ReaderScrollView bodyScroller;
     private LinearLayout checklist;
     private LinearLayout composeBar;
     private EditText composeText;
@@ -348,12 +348,79 @@ public class CardReaderActivity extends AppCompatActivity {
      * report, 2026-09-12; introduced by the scroll-on-focus in v0.47.0.
      */
     private void scrollToNewest() {
-        if (bodyScroller == null) return;
+        scrollToEnd(6);
+    }
+
+    /**
+     * Scroll to the end, and **keep doing it until the content stops growing**.
+     *
+     * <p>One `post` was not enough and that is why a channel opened at the TOP
+     * despite v0.47.0. The body is handed to the TextView, the post runs on the
+     * next frame, and a long markdown body — a channel is the whole conversation
+     * in one card, and this one is 120 KB — has not finished laying out yet. So
+     * `getBottom()` was still nearly nothing, the scroll target computed to ~0,
+     * and the reader landed on the oldest message in the card. The bigger the
+     * channel, the more certain the bug: exactly backwards from what you want.
+     *
+     * <p>So it re-posts while the measured height keeps changing, up to a small
+     * budget of frames. Bounded rather than a layout listener that has to be
+     * unregistered: a handful of frames is cheap, and an attempt that arrives
+     * after the content settled is a no-op that costs one comparison.
+     */
+    private void scrollToEnd(int triesLeft) {
+        if (bodyScroller == null || bodyScroller.getChildCount() == 0) return;
+        final int before = bodyScroller.getChildAt(0).getHeight();
         bodyScroller.post(() -> {
             if (bodyScroller.getChildCount() == 0) return;
-            bodyScroller.scrollTo(0, Math.max(0,
-                    bodyScroller.getChildAt(0).getBottom() - bodyScroller.getHeight()));
+            View content = bodyScroller.getChildAt(0);
+            bodyScroller.scrollTo(0, Math.max(0, endOfContent() - bodyScroller.getHeight()));
+            // Still growing? The scroll we just did was to the wrong place.
+            if (triesLeft > 0 && content.getHeight() != before) {
+                scrollToEnd(triesLeft - 1);
+            }
         });
+    }
+
+    /**
+     * Where the visible content actually <b>ends</b>, in the scroller's own
+     * coordinates — which is not the same as where its child ends.
+     *
+     * <p><b>Measured, not assumed.</b> On a long channel the body's
+     * {@code HorizontalScrollView} reported a height of 16567 while the TextView
+     * inside it was 15607: <b>960 pixels of dead space below the text</b>. So
+     * scrolling to the child's bottom — the obvious thing, and what this did —
+     * put the viewport entirely inside that gap and the reader opened on a blank
+     * screen. On the operator's own channel the same arithmetic landed at the
+     * top instead; either way the end of the conversation was not on screen, and
+     * a selectable body could not be dragged out of it (see
+     * {@link com.trellis.viewer.ui.ReaderScrollView}), so it looked broken.
+     *
+     * <p>Targeting the end of the <em>text</em> is right whatever the container
+     * does, and stays right if a later image or embed changes the wrapping after
+     * layout.
+     */
+    private int endOfContent() {
+        View v = bodyView != null && bodyView.getVisibility() == View.VISIBLE
+                ? bodyView
+                : (checklist != null && checklist.getVisibility() == View.VISIBLE ? checklist : null);
+        if (v == null || bodyScroller == null || bodyScroller.getChildCount() == 0) {
+            return bodyScroller == null || bodyScroller.getChildCount() == 0
+                    ? 0 : bodyScroller.getChildAt(0).getBottom();
+        }
+        int y = v.getHeight();
+        android.view.View cur = v;
+        while (cur != null && cur != bodyScroller) {
+            y += cur.getTop();
+            android.view.ViewParent p = cur.getParent();
+            cur = (p instanceof android.view.View) ? (android.view.View) p : null;
+        }
+        return y;
+    }
+
+    /** Jump to the first message — the menu's counterpart to {@link #scrollToNewest}. */
+    private void scrollToOldest() {
+        if (bodyScroller == null) return;
+        bodyScroller.post(() -> bodyScroller.scrollTo(0, 0));
     }
 
     /**
@@ -796,6 +863,14 @@ public class CardReaderActivity extends AppCompatActivity {
         menu.findItem(R.id.action_card_backlinks).setVisible(cardId >= 0 && !editing);
         // Files, mentions and the local graph are all card-addressed reads, so
         // they need the card id and nothing else.
+        // **Shown on any card with a body, not only a channel.** A long note is
+        // as hard to get back to the top of as a conversation is; the menu is
+        // where you look either way. Hidden while editing, like everything else,
+        // and hidden on a checklist, which has its own scroller and no body.
+        boolean scrollable = !editing && bodyScroller != null
+                && bodyScroller.getVisibility() == View.VISIBLE;
+        menu.findItem(R.id.action_jump_top).setVisible(scrollable);
+        menu.findItem(R.id.action_jump_bottom).setVisible(scrollable);
         menu.findItem(R.id.action_attachments).setVisible(cardId >= 0 && !editing);
         menu.findItem(R.id.action_mentions).setVisible(cardId >= 0 && !editing);
         menu.findItem(R.id.action_card_graph).setVisible(cardId >= 0 && !editing);
@@ -829,6 +904,14 @@ public class CardReaderActivity extends AppCompatActivity {
         }
         if (id == R.id.action_status) {
             pickStatus();
+            return true;
+        }
+        if (id == R.id.action_jump_top) {
+            scrollToOldest();
+            return true;
+        }
+        if (id == R.id.action_jump_bottom) {
+            scrollToNewest();
             return true;
         }
         if (id == R.id.action_attachments) {

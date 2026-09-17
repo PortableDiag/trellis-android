@@ -46,6 +46,10 @@
     <string name="claims_none">No card in this document carries a verify:: date</string>
     <string name="claims_failed">Couldn\'t load claims.\n\n%1$s</string>
     <string name="not_connected">Not connected. Set your workstation in Settings first.</string>
+    <!-- A channel is read at its end, so "Bottom" is the one people reach for:
+         it is what keeps you level with a conversation that is still moving. -->
+    <string name="jump_top">Jump to top</string>
+    <string name="jump_bottom">Jump to bottom</string>
     <string name="files_on_card">Files on this card</string>
     <string name="unlinked_mentions">Unlinked mentions</string>
     <string name="nearby_cards">Nearby cards</string>

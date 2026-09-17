@@ -33,6 +33,16 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_jump_top"
+        android:title="@string/jump_top"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_jump_bottom"
+        android:title="@string/jump_bottom"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_attachments"
         android:title="@string/files_on_card"
         app:showAsAction="never"/>
