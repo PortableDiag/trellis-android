@@ -56,4 +56,11 @@
         android:id="@+id/action_card_graph"
         android:title="@string/nearby_cards"
         app:showAsAction="never"/>
+
+    <!-- Export this card. See menu_basket for why the picture formats are
+         rendered on the device rather than fetched. -->
+    <item
+        android:id="@+id/action_export"
+        android:title="@string/action_export"
+        app:showAsAction="never"/>
 </menu>

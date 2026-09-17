@@ -100,6 +100,137 @@ public final class Md {
      * separated by a middle dot reads at that size and, unlike a table, cannot
      * collide with itself. Tapping the card still opens the full table.
      */
+    /**
+     * One piece of a card body: either prose to render as Markdown, or a GFM
+     * table to lay out as real views.
+     *
+     * <p>Exists because a single TextView cannot do both jobs. The reader caps
+     * the body at the screen width so prose wraps; Markwon then draws a table
+     * with {@code TableRowSpan}, which divides <em>that capped width</em> equally
+     * between the columns. On a phone a four-column table gets about ninety
+     * pixels a cell, so the text breaks after a character or two and the rows
+     * collide — the "jumbled and smashed" the operator reported on 2026-09-17.
+     * Widening the TextView instead would fix the table and stop the prose
+     * wrapping, because it is the same view. So the body is split, and each
+     * kind gets the treatment it needs.
+     */
+    public static final class Block {
+        /** Prose markdown; null for a table block. */
+        public final String text;
+        /** Rows of cells, header first; null for a text block. */
+        public final java.util.List<java.util.List<String>> rows;
+        /** Per-column alignment from the separator row: -1 left, 0 centre, 1 right. */
+        public final int[] align;
+
+        Block(String text) { this.text = text; this.rows = null; this.align = null; }
+        Block(java.util.List<java.util.List<String>> rows, int[] align) {
+            this.text = null; this.rows = rows; this.align = align;
+        }
+        public boolean isTable() { return rows != null; }
+    }
+
+    /** Is this line a table separator — {@code |---|:--:|} and nothing else? */
+    private static boolean isSeparator(String t) {
+        if (t.length() < 2 || !t.startsWith("|")) return false;
+        boolean sawDash = false;
+        for (int i = 0; i < t.length(); i++) {
+            final char c = t.charAt(i);
+            if (c == '-') sawDash = true;
+            else if (c != '|' && c != ':' && c != ' ' && c != '\t') return false;
+        }
+        return sawDash;
+    }
+
+    /** Cells of one {@code |a|b|} row, outer pipes dropped, each trimmed. */
+    private static java.util.List<String> cells(String t) {
+        String inner = t;
+        if (inner.startsWith("|")) inner = inner.substring(1);
+        if (inner.endsWith("|")) inner = inner.substring(0, inner.length() - 1);
+        final java.util.List<String> out = new java.util.ArrayList<>();
+        // Split on unescaped pipes only: a cell may legitimately contain `\|`.
+        final StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < inner.length(); i++) {
+            final char c = inner.charAt(i);
+            if (c == '\\' && i + 1 < inner.length() && inner.charAt(i + 1) == '|') {
+                cur.append('|');
+                i++;
+            } else if (c == '|') {
+                out.add(cur.toString().trim());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        out.add(cur.toString().trim());
+        return out;
+    }
+
+    /** Does this body hold at least one GFM table? */
+    public static boolean hasTable(String body) {
+        if (body == null || body.indexOf('|') < 0) return false;
+        for (Block b : split(body)) {
+            if (b.isTable()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Split a body into prose and table blocks, in order.
+     *
+     * <p>A table is a row, a separator directly beneath it, and every row after
+     * that until a line which is not a row. Anything else is prose — including a
+     * line of pipes with no separator under it, which is not a table and must
+     * keep rendering as the text it is.
+     */
+    public static java.util.List<Block> split(String body) {
+        final java.util.List<Block> out = new java.util.ArrayList<>();
+        if (body == null) return out;
+        final String[] lines = body.split("\n", -1);
+        final StringBuilder prose = new StringBuilder();
+        int i = 0;
+        while (i < lines.length) {
+            final String t = lines[i].trim();
+            final boolean isRow = t.length() > 1 && t.startsWith("|");
+            final boolean sepNext = i + 1 < lines.length && isSeparator(lines[i + 1].trim());
+            if (!isRow || !sepNext) {
+                prose.append(lines[i]).append('\n');
+                i++;
+                continue;
+            }
+            // A table starts here. Flush whatever prose came before it.
+            if (prose.length() > 0) {
+                out.add(new Block(prose.toString()));
+                prose.setLength(0);
+            }
+            final java.util.List<java.util.List<String>> rows = new java.util.ArrayList<>();
+            rows.add(cells(t));
+            final int[] align = alignments(lines[i + 1].trim(), rows.get(0).size());
+            i += 2;
+            while (i < lines.length) {
+                final String r = lines[i].trim();
+                if (r.length() < 2 || !r.startsWith("|")) break;
+                rows.add(cells(r));
+                i++;
+            }
+            out.add(new Block(rows, align));
+        }
+        if (prose.length() > 0) out.add(new Block(prose.toString()));
+        return out;
+    }
+
+    /** {@code :--} left, {@code :-:} centre, {@code --:} right. */
+    private static int[] alignments(String sep, int columns) {
+        final java.util.List<String> parts = cells(sep);
+        final int[] a = new int[columns];
+        for (int i = 0; i < columns; i++) {
+            final String p = i < parts.size() ? parts.get(i) : "";
+            final boolean left = p.startsWith(":");
+            final boolean right = p.endsWith(":");
+            a[i] = right ? (left ? 0 : 1) : -1;
+        }
+        return a;
+    }
+
     public static String flattenTables(String body) {
         if (body == null || body.indexOf('|') < 0) return body;
         final StringBuilder out = new StringBuilder(body.length());

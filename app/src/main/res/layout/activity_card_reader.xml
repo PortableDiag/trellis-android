@@ -50,6 +50,19 @@
                     android:textIsSelectable="true"/>
             </HorizontalScrollView>
 
+            <!-- Read mode, when the body holds a GFM table. A single TextView
+                 cannot both wrap prose to the screen and pan a wide table, so a
+                 body with a table is rendered as blocks instead: prose in
+                 TextViews that wrap, each table in its own horizontal scroller
+                 with real columns. GONE unless there is a table, so the ordinary
+                 card keeps the exact path it always had. -->
+            <LinearLayout
+                android:id="@+id/body_blocks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"/>
+
             <!-- A web page's rendered picture. The phone has no browser and no
                  business running one, so it shows what the desktop produced. -->
             <ImageView

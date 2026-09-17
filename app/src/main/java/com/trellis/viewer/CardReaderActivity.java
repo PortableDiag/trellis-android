@@ -6,6 +6,9 @@ import android.os.Bundle;
 import android.text.method.LinkMovementMethod;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.content.Intent;
+import com.trellis.viewer.ui.BasketView;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -92,6 +95,8 @@ public class CardReaderActivity extends AppCompatActivity {
     private final List<Card2Item> items = new ArrayList<>();
 
     private TextView bodyView;
+    /** Block renderer for a body holding a GFM table; see {@link #renderBlocks}. */
+    private android.widget.LinearLayout bodyBlocks;
     private EditText editor;
     private View bodyScroll;
     /** The vertical scroller the body sits in — a channel is read at its end. */
@@ -166,6 +171,11 @@ public class CardReaderActivity extends AppCompatActivity {
             // mark in the same place.
             String shown = title == null || title.isEmpty()
                     ? "Card" : WikiLinks.displayText(title);
+            // Kept for the export filename. `getTitle()` answers the ACTIVITY
+            // label — "Trellis" — so naming a file from it gave every card the
+            // same name and let the picker disambiguate with (1), (2)… Caught on
+            // the emulator, where the first exported card came out `Trellis.png`.
+            cardTitle = shown;
             getSupportActionBar().setTitle(sealed ? "\uD83D\uDD12 " + shown : shown);
         }
         toolbar.setNavigationOnClickListener(v -> handleBack());
@@ -178,6 +188,7 @@ public class CardReaderActivity extends AppCompatActivity {
                 });
 
         bodyView = findViewById(R.id.body);
+        bodyBlocks = findViewById(R.id.body_blocks);
         editor = findViewById(R.id.editor);
         bodyScroll = findViewById(R.id.body_scroll);
         bodyScroller = findViewById(R.id.body_scroller);
@@ -758,6 +769,7 @@ public class CardReaderActivity extends AppCompatActivity {
         if (mono) {
             // Verbatim: don't wrap long lines — let the HorizontalScrollView pan
             // them (keeps a wide table's columns aligned instead of reflowing).
+            showBody();
             bodyView.setHorizontallyScrolling(true);
             bodyView.setTypeface(Typeface.MONOSPACE);
             // A table is laid out as monospace so its columns line up, which
@@ -766,8 +778,18 @@ public class CardReaderActivity extends AppCompatActivity {
             // make each one tappable, keeping the alignment the padding built.
             bodyView.setText(WikiLinks.linkify(this, body));
             bodyView.setMovementMethod(LinkMovementMethod.getInstance());
+        } else if (Md.hasTable(body)) {
+            // **A table cannot share a TextView with prose.** The line below caps
+            // the body at the screen width so prose wraps; Markwon then draws a
+            // table with TableRowSpan, which divides that capped width EQUALLY
+            // between the columns — about ninety pixels each on a phone, so the
+            // text breaks after a character or two and the rows collide. Widening
+            // the view fixes the table and unwraps the prose, because it is one
+            // view. So a body with a table is rendered as blocks instead.
+            renderBlocks(body);
         } else {
             // Prose / checklist: wrap to the screen width and render markdown.
+            showBody();
             bodyView.setHorizontallyScrolling(false);
             int pad = Math.round(32 * getResources().getDisplayMetrics().density);
             bodyView.setMaxWidth(getResources().getDisplayMetrics().widthPixels - pad);
@@ -782,6 +804,126 @@ public class CardReaderActivity extends AppCompatActivity {
             // which is indistinguishable from the bug being fixed here.
             bodyView.setMovementMethod(LinkMovementMethod.getInstance());
         }
+    }
+
+    /** Show the single-TextView body and hide the block container. */
+    private void showBody() {
+        if (bodyBlocks != null) {
+            bodyBlocks.removeAllViews();
+            bodyBlocks.setVisibility(View.GONE);
+        }
+        View scroll = findViewById(R.id.body_scroll);
+        if (scroll != null) scroll.setVisibility(View.VISIBLE);
+        bodyView.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Render a body that contains a GFM table, as blocks.
+     *
+     * <p>Prose blocks wrap to the screen exactly as before. Each table becomes a
+     * real {@link android.widget.TableLayout} inside its own
+     * {@code HorizontalScrollView}, so the columns take the width their content
+     * needs and a wide table <em>pans</em> instead of crushing itself into the
+     * screen. That is also what the desktop does — its columns are content-sized,
+     * not screen-divided — so the same card now reads the same way on both.
+     *
+     * <p>Cells are rendered as Markdown individually, so bold, code and
+     * {@code [[wiki links]]} inside a cell keep working; Markwon's own table
+     * plugin is never involved, which is the whole point.
+     */
+    private void renderBlocks(String body) {
+        View scroll = findViewById(R.id.body_scroll);
+        if (scroll != null) scroll.setVisibility(View.GONE);
+        bodyView.setVisibility(View.GONE);
+        bodyBlocks.removeAllViews();
+        bodyBlocks.setVisibility(View.VISIBLE);
+
+        final float d = getResources().getDisplayMetrics().density;
+        final int pad16 = Math.round(16 * d);
+        final int cellPad = Math.round(8 * d);
+        final int rule = Math.max(1, Math.round(1 * d));
+        final int outline = outlineColor();
+        final int screen = getResources().getDisplayMetrics().widthPixels;
+
+        for (Md.Block b : Md.split(body)) {
+            if (!b.isTable()) {
+                final String text = b.text.trim();
+                if (text.isEmpty()) continue;
+                final TextView tv = new TextView(this);
+                tv.setPadding(pad16, pad16 / 2, pad16, pad16 / 2);
+                tv.setTextIsSelectable(true);
+                tv.setLineSpacing(0f, 1.15f);
+                tv.setMaxWidth(screen - Math.round(32 * d));
+                Md.create(this).setMarkdown(tv, Md.hardWrap(WikiLinks.toMarkdown(text)));
+                tv.setMovementMethod(LinkMovementMethod.getInstance());
+                bodyBlocks.addView(tv);
+                continue;
+            }
+            final android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+            hs.setPadding(pad16, pad16 / 2, pad16, pad16 / 2);
+            // A short table should not stretch to the screen, and a long one
+            // must be allowed past it — which is exactly what wrap_content plus
+            // a horizontal scroller gives.
+            final android.widget.TableLayout tl = new android.widget.TableLayout(this);
+            final int cols = widestRow(b.rows);
+            for (int r = 0; r < b.rows.size(); r++) {
+                final java.util.List<String> row = b.rows.get(r);
+                final android.widget.TableRow tr = new android.widget.TableRow(this);
+                for (int c = 0; c < cols; c++) {
+                    final String cell = c < row.size() ? row.get(c) : "";
+                    final TextView cv = new TextView(this);
+                    cv.setPadding(cellPad, cellPad, cellPad, cellPad);
+                    // The header is the row people scan, so it is weighted —
+                    // matching the desktop, which draws a header row bolder.
+                    if (r == 0) cv.setTypeface(cv.getTypeface(), Typeface.BOLD);
+                    final int a = b.align != null && c < b.align.length ? b.align[c] : -1;
+                    cv.setGravity(a == 0 ? Gravity.CENTER_HORIZONTAL
+                            : a == 1 ? Gravity.END : Gravity.START);
+                    // A cell that is one long sentence must not make the table
+                    // wider than the screen several times over; past this it
+                    // wraps inside its own column, which still never collides.
+                    cv.setMaxWidth(Math.round(screen * 0.7f));
+                    if (cell.isEmpty()) {
+                        cv.setText("");
+                    } else {
+                        Md.create(this).setMarkdown(cv, WikiLinks.toMarkdown(cell));
+                        cv.setMovementMethod(LinkMovementMethod.getInstance());
+                    }
+                    tr.addView(cv);
+                }
+                tl.addView(tr);
+                // A rule under the header, and between body rows — the cheapest
+                // thing that reads as a table without drawing a full grid.
+                final View line = new View(this);
+                line.setBackgroundColor(outline);
+                tl.addView(line, new android.widget.TableLayout.LayoutParams(
+                        android.widget.TableLayout.LayoutParams.MATCH_PARENT,
+                        r == 0 ? rule * 2 : rule));
+            }
+            hs.addView(tl);
+            bodyBlocks.addView(hs);
+        }
+    }
+
+    /** The widest row decides the column count: a ragged table must not lose cells. */
+    private static int widestRow(java.util.List<java.util.List<String>> rows) {
+        int n = 0;
+        for (java.util.List<String> r : rows) n = Math.max(n, r.size());
+        return n;
+    }
+
+    /** The theme's outline colour, for table rules. */
+    private int outlineColor() {
+        final android.util.TypedValue tv = new android.util.TypedValue();
+        if (getTheme().resolveAttribute(
+                com.google.android.material.R.attr.colorOutline, tv, true)) {
+            if (tv.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT
+                    && tv.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT) {
+                return tv.data;
+            }
+            if (tv.resourceId != 0) return getColor(tv.resourceId);
+        }
+        return 0x61888888;
     }
 
     /**
@@ -884,7 +1026,165 @@ public class CardReaderActivity extends AppCompatActivity {
         return super.onPrepareOptionsMenu(menu);
     }
 
+    // ---- export -----------------------------------------------------------
+
+    private com.trellis.viewer.util.Exporter.Format exportFormat;
+    private byte[] exportBytes;
+    /**
+     * Where an export lands, through the system picker.
+     *
+     * <p>{@code registerForActivityResult} rather than the deprecated
+     * {@code startActivityForResult}: this project keeps both builds at zero
+     * warnings, and a build that always warns is a build nobody reads.
+     */
+    private final androidx.activity.result.ActivityResultLauncher<Intent> exportSave =
+            registerForActivityResult(
+                    new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                    r -> {
+                        final Intent d = r.getData();
+                        if (r.getResultCode() != RESULT_OK || d == null
+                                || d.getData() == null || exportBytes == null) {
+                            exportBytes = null;
+                            return;
+                        }
+                        final String err = com.trellis.viewer.util.Exporter.writeTo(
+                                this, d.getData(), exportBytes);
+                        exportBytes = null;
+                        android.widget.Toast.makeText(this,
+                                err == null
+                                        ? getString(R.string.export_saved, exportFormat.ext.toUpperCase())
+                                        : getString(R.string.export_failed, err),
+                                android.widget.Toast.LENGTH_LONG).show();
+                    });
+
+
+    private void promptExport() {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.export_choose)
+                .setItems(com.trellis.viewer.util.Exporter.labels(), (d, which) ->
+                        startExport(com.trellis.viewer.util.Exporter.at(which)))
+                .show();
+    }
+
+    /**
+     * Build the file, then ask where to put it.
+     *
+     * <p>A picture is rendered through an offscreen {@link BasketView} holding
+     * just this card. That is not a re-implementation of the card's appearance —
+     * it is the very view the canvas uses, drawn somewhere else, which is the
+     * only way "looks just like the card" can be a guarantee rather than an
+     * intention. Inline images are fetched first and handed to it, because a
+     * card whose picture had not loaded would otherwise export as a blank frame
+     * and read as data loss.
+     */
+    private void startExport(com.trellis.viewer.util.Exporter.Format f) {
+        exportFormat = f;
+        android.widget.Toast.makeText(this, R.string.export_rendering,
+                android.widget.Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String err = null;
+            byte[] out = null;
+            try {
+                final com.trellis.viewer.net.TrellisApi api = new com.trellis.viewer.net.TrellisApi(
+                        com.trellis.viewer.net.ServerPrefs.baseUrl(this),
+                        com.trellis.viewer.net.ServerPrefs.key(this));
+                if (!f.isPicture()) {
+                    final String body = api.get("/cards/" + cardId + "/export?format=" + f.api);
+                    out = new org.json.JSONObject(body).getString("content")
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                } else {
+                    final org.json.JSONObject o =
+                            new org.json.JSONObject(api.get("/cards/" + cardId));
+                    final org.json.JSONObject cj = o.optJSONObject("card");
+                    if (cj == null) throw new IllegalStateException("card not found");
+                    final com.trellis.viewer.model.Card card =
+                            com.trellis.viewer.model.Card.parseCard(cj);
+                    // Fetch inline images before drawing; see the note above.
+                    final java.util.List<android.graphics.Bitmap> imgs = new java.util.ArrayList<>();
+                    for (int i = 0; i < card.imageCount; i++) {
+                        try {
+                            // The same cached base64 route the canvas uses, so an
+                            // export costs nothing extra for an image already seen.
+                            final String b64 = api.imageBase64(nodeId, cardId, i);
+                            final byte[] raw = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                            imgs.add(android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length));
+                        } catch (Exception ignored) {
+                            imgs.add(null);
+                        }
+                    }
+                    final byte[][] holder = new byte[1][];
+                    final Object lock = new Object();
+                    runOnUiThread(() -> {
+                        holder[0] = renderCardPicture(card, imgs, f);
+                        synchronized (lock) { lock.notifyAll(); }
+                    });
+                    synchronized (lock) {
+                        // The draw has to happen on the UI thread (it builds text
+                        // layouts); this waits for it rather than racing it.
+                        if (holder[0] == null) lock.wait(20000);
+                    }
+                    out = holder[0];
+                    if (out == null) throw new IllegalStateException("could not render the card");
+                }
+            } catch (Exception e) {
+                err = e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+            final String fe = err;
+            final byte[] fo = out;
+            runOnUiThread(() -> {
+                if (fo == null) {
+                    android.widget.Toast.makeText(this, getString(R.string.export_failed, fe),
+                            android.widget.Toast.LENGTH_LONG).show();
+                    return;
+                }
+                exportBytes = fo;
+                final String name = com.trellis.viewer.util.Exporter.fileName(
+                        titleText(), exportFormat, false);
+                try {
+                    exportSave.launch(com.trellis.viewer.util.Exporter.saveIntent(exportFormat, name));
+        } catch (Exception e) {
+                    android.widget.Toast.makeText(this,
+                            getString(R.string.export_failed, "no app can save files here"),
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
+        }).start();
+    }
+
+    /** Draw one card through an offscreen canvas view, then encode it. */
+    private byte[] renderCardPicture(com.trellis.viewer.model.Card card,
+                                     java.util.List<android.graphics.Bitmap> imgs,
+                                     com.trellis.viewer.util.Exporter.Format f) {
+        final BasketView off = new BasketView(this, null);
+        final java.util.List<com.trellis.viewer.model.Card> one = new java.util.ArrayList<>();
+        one.add(card);
+        off.setCards(one);
+        for (int i = 0; i < imgs.size(); i++) {
+            if (imgs.get(i) != null) off.setImage(card.id, i, imgs.get(i));
+        }
+        final android.graphics.Bitmap bmp =
+                off.renderCardBitmap(card.id, com.trellis.viewer.util.Exporter.pngScale());
+        if (bmp == null) return null;
+        final byte[] bytes = f == com.trellis.viewer.util.Exporter.Format.PNG
+                ? com.trellis.viewer.util.Exporter.png(bmp)
+                : com.trellis.viewer.util.Exporter.pdf(bmp);
+        bmp.recycle();
+        return bytes;
+    }
+
+    /** The card's own title, for the filename — never the activity label. */
+    private String cardTitle;
+
+    private String titleText() {
+        return cardTitle == null || cardTitle.isEmpty() ? "card" : cardTitle;
+    }
+
+
     @Override public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_export) {
+            promptExport();
+            return true;
+        }
         int id = item.getItemId();
         if (id == R.id.action_edit) {
             startEditing();

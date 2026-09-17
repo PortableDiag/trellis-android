@@ -27,4 +27,13 @@
         android:id="@+id/action_backlinks"
         android:title="@string/links_here"
         app:showAsAction="never"/>
+
+    <!-- Export this basket. Text formats come from the server so a note is
+         identical whichever machine wrote it; PNG and PDF are rendered here from
+         the same draw code the canvas uses, which is what makes them look like
+         the cards rather than merely resemble them. -->
+    <item
+        android:id="@+id/action_export"
+        android:title="@string/action_export"
+        app:showAsAction="never"/>
 </menu>

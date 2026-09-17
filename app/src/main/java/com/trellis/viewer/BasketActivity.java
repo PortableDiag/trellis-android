@@ -297,6 +297,148 @@ public class BasketActivity extends AppCompatActivity {
         return arr.toString();
     }
 
+    // ---- export -----------------------------------------------------------
+
+    private com.trellis.viewer.util.Exporter.Format pendingFormat;
+    private boolean pendingSubnodes;
+    private byte[] pendingBytes;
+    /**
+     * Where an export lands, through the system picker.
+     *
+     * <p>{@code registerForActivityResult} rather than the deprecated
+     * {@code startActivityForResult}: this project keeps both builds at zero
+     * warnings, and a build that always warns is a build nobody reads.
+     */
+    private final androidx.activity.result.ActivityResultLauncher<Intent> exportSave =
+            registerForActivityResult(
+                    new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                    r -> {
+                        final Intent d = r.getData();
+                        if (r.getResultCode() != RESULT_OK || d == null
+                                || d.getData() == null || pendingBytes == null) {
+                            pendingBytes = null;
+                            return;
+                        }
+                        final String err = com.trellis.viewer.util.Exporter.writeTo(
+                                this, d.getData(), pendingBytes);
+                        pendingBytes = null;
+                        android.widget.Toast.makeText(this,
+                                err == null
+                                        ? getString(R.string.export_saved, pendingFormat.ext.toUpperCase())
+                                        : getString(R.string.export_failed, err),
+                                android.widget.Toast.LENGTH_LONG).show();
+                    });
+
+
+    /**
+     * Ask for a format, then produce the bytes, then ask where to put them.
+     *
+     * <p>The bytes are made <em>before</em> the save dialog rather than after,
+     * so a render that fails says so instead of handing the user a file picker
+     * that ends in an empty file. A card carrying an image the canvas has not
+     * loaded yet would otherwise export as a blank rectangle and look like data
+     * loss.
+     */
+    private void promptExport() {
+        if (basket.isEmpty()) {
+            android.widget.Toast.makeText(this, R.string.export_nothing,
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final boolean[] subs = {false};
+        final android.widget.CheckBox cb = new android.widget.CheckBox(this);
+        cb.setText(R.string.export_subnodes);
+        cb.setOnCheckedChangeListener((v, checked) -> subs[0] = checked);
+        final int pad = Math.round(24 * getResources().getDisplayMetrics().density);
+        final android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        wrap.addView(cb);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.export_choose)
+                .setView(wrap)
+                .setItems(com.trellis.viewer.util.Exporter.labels(), (d, which) -> {
+                    final com.trellis.viewer.util.Exporter.Format f =
+                            com.trellis.viewer.util.Exporter.at(which);
+                    // A picture is one basket by definition — there is no second
+                    // canvas to append — so the subtree flag applies to text only.
+                    startExport(f, subs[0] && !f.isPicture());
+                })
+                .show();
+    }
+
+    private void startExport(com.trellis.viewer.util.Exporter.Format f, boolean subs) {
+        pendingFormat = f;
+        pendingSubnodes = subs;
+        if (f.isPicture()) {
+            // Rendering is synchronous and on the UI thread on purpose: it reads
+            // the live view's cards and bitmaps, and hopping threads to touch
+            // them is how a half-drawn frame ends up in the file.
+            final android.graphics.Bitmap bmp =
+                    basket.renderBitmap(basket.contentBounds(),
+                            com.trellis.viewer.util.Exporter.pngScale());
+            if (bmp == null) {
+                android.widget.Toast.makeText(this,
+                        getString(R.string.export_failed, "out of memory"),
+                        android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            pendingBytes = f == com.trellis.viewer.util.Exporter.Format.PNG
+                    ? com.trellis.viewer.util.Exporter.png(bmp)
+                    : com.trellis.viewer.util.Exporter.pdf(bmp);
+            bmp.recycle();
+            if (pendingBytes == null) {
+                android.widget.Toast.makeText(this,
+                        getString(R.string.export_failed, "could not build the file"),
+                        android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            askWhereToSave();
+            return;
+        }
+        // Text: the server writes it, so the phone and the desktop agree.
+        new Thread(() -> {
+            String err = null;
+            byte[] out = null;
+            try {
+                final com.trellis.viewer.net.TrellisApi api = new com.trellis.viewer.net.TrellisApi(
+                        com.trellis.viewer.net.ServerPrefs.baseUrl(this),
+                        com.trellis.viewer.net.ServerPrefs.key(this));
+                final String body = api.get("/nodes/" + nodeId + "/export?format=" + f.api
+                        + (subs ? "&subnodes=true" : ""));
+                final org.json.JSONObject o = new org.json.JSONObject(body);
+                out = o.getString("content").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                err = e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+            final String fe = err;
+            final byte[] fo = out;
+            runOnUiThread(() -> {
+                if (fo == null) {
+                    android.widget.Toast.makeText(this,
+                            getString(R.string.export_failed, fe),
+                            android.widget.Toast.LENGTH_LONG).show();
+                    return;
+                }
+                pendingBytes = fo;
+                askWhereToSave();
+            });
+        }).start();
+    }
+
+    private void askWhereToSave() {
+        final String name = com.trellis.viewer.util.Exporter.fileName(
+                thisNodeTitle, pendingFormat, pendingSubnodes);
+        try {
+            exportSave.launch(com.trellis.viewer.util.Exporter.saveIntent(pendingFormat, name));
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this,
+                    getString(R.string.export_failed, "no app can save files here"),
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+
     @Override public boolean onCreateOptionsMenu(android.view.Menu menu) {
         getMenuInflater().inflate(R.menu.menu_basket, menu);
         return true;
@@ -338,6 +480,10 @@ public class BasketActivity extends AppCompatActivity {
             i2.putExtra(CubeActivity.EXTRA_NODE_ID, nodeId);
             i2.putExtra(CubeActivity.EXTRA_TITLE, thisNodeTitle);
             startActivity(i2);
+            return true;
+        }
+        if (id == R.id.action_export) {
+            promptExport();
             return true;
         }
         if (id == R.id.action_time) {

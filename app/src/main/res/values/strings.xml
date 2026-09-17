@@ -79,4 +79,11 @@
         <item quantity="one">%d stale</item>
         <item quantity="other">%d stale</item>
     </plurals>
+    <string name="action_export">Export…</string>
+    <string name="export_choose">Export as</string>
+    <string name="export_subnodes">Include sub-baskets</string>
+    <string name="export_saved">Saved %1$s</string>
+    <string name="export_failed">Export failed: %1$s</string>
+    <string name="export_rendering">Rendering…</string>
+    <string name="export_nothing">Nothing to export here</string>
 </resources>

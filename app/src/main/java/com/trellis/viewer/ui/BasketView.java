@@ -52,6 +52,8 @@ public class BasketView extends View {
     private boolean feed;
     /** Set while drawing if any card pulsed, so only then do we ask for another frame. */
     private boolean pulsing;
+    /** True while rendering an export: freezes animation and asks for no more frames. */
+    private boolean exporting;
     private boolean fitPending = true;
 
     private final int cSurface, cOnSurface, cSurfaceVariant, cOnSurfaceVariant, cOutline;
@@ -674,7 +676,15 @@ public class BasketView extends View {
             if ("pulse".equals(c.emphasis)) {
                 double t = android.os.SystemClock.uptimeMillis() / 1000.0;
                 amount *= 0.7f + 0.3f * (float) Math.sin(t * 2 * Math.PI / 1.8);
-                pulsing = true;   // ask for another frame after this draw
+                if (exporting) {
+                    // An export is one still frame. Taking the pulse at
+                    // its own phase would make two exports of the same
+                    // card differ, and asking for another frame would
+                    // spin a view that is never on screen.
+                    amount = Math.max(0f, Math.min(1f, c.emphasisIntensity));
+                } else {
+                    pulsing = true;   // ask for another frame after this draw
+                }
             }
             for (int i = 7; i >= 1; i--) {
                 float grow = i * 2.6f;
@@ -944,6 +954,123 @@ public class BasketView extends View {
      * the theme's card style off for this basket rather than falling through to
      * it. Null or empty is unset.
      */
+    // ---- export -----------------------------------------------------------
+    //
+    // **The export IS the draw.** `drawCard` works in world coordinates and
+    // never reads the scroll offset, the zoom or the view's size — the caller
+    // supplies the transform — so pointing it at an offscreen Bitmap or a
+    // PdfDocument page canvas produces exactly what the screen shows. That is
+    // the whole reason a WYSIWYG export can exist on the phone while it cannot
+    // exist as a desktop API route: there, the picture is a capture of a window;
+    // here, the app draws the cards itself and can draw them anywhere.
+
+    /** Padding around exported content, in world units. */
+    private static final float EXPORT_PAD = 24f;
+    /** Biggest edge of an exported bitmap. Beyond this a phone runs out of heap. */
+    private static final int EXPORT_MAX_PX = 4096;
+
+    /** The world rectangle every card occupies, padded, or null if there is nothing. */
+    public android.graphics.RectF contentBounds() {
+        if (cards.isEmpty()) return null;
+        float l = Float.MAX_VALUE, t = Float.MAX_VALUE, r = -Float.MAX_VALUE, b = -Float.MAX_VALUE;
+        for (Card c : cards) {
+            l = Math.min(l, c.x);
+            t = Math.min(t, c.y);
+            r = Math.max(r, c.x + c.w);
+            b = Math.max(b, c.y + c.h);
+        }
+        return new android.graphics.RectF(l - EXPORT_PAD, t - EXPORT_PAD,
+                r + EXPORT_PAD, b + EXPORT_PAD);
+    }
+
+    /** One card's world rectangle, padded. */
+    public android.graphics.RectF cardBounds(long cardId) {
+        for (Card c : cards) {
+            if (c.id == cardId) {
+                return new android.graphics.RectF(c.x - EXPORT_PAD, c.y - EXPORT_PAD,
+                        c.x + c.w + EXPORT_PAD, c.y + c.h + EXPORT_PAD);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Draw `world` onto `canvas` at `scale`, exactly as the screen draws it.
+     *
+     * @param only when non-zero, draw just that card — the rest of the basket is
+     *             skipped, which is what "export this card" means.
+     */
+    public void drawForExport(Canvas canvas, android.graphics.RectF world, float scale, long only) {
+        exporting = true;
+        try {
+            // The basket's pattern is painted across the whole page, the same way
+            // onDraw paints it across the viewport: it is the surface, not a card.
+            if (bgFill != null) {
+                Fills.paint(canvas, new android.graphics.RectF(0, 0,
+                        world.width() * scale, world.height() * scale), 0f, bgFill, cSurfaceVariant);
+            }
+            canvas.save();
+            canvas.scale(scale, scale);
+            canvas.translate(-world.left, -world.top);
+            if (only == 0L) {
+                for (Card c : cards) drawCard(canvas, c);
+                drawGroups(canvas);
+                drawDockLinks(canvas);
+            } else {
+                for (Card c : cards) {
+                    if (c.id == only) drawCard(canvas, c);
+                }
+            }
+            canvas.restore();
+        } finally {
+            exporting = false;
+        }
+    }
+
+    /**
+     * Render to a bitmap at roughly `scale`, clamped so a large basket cannot
+     * exhaust the heap — a phone will happily ask for a 20000px page and then die.
+     */
+    public Bitmap renderBitmap(android.graphics.RectF world, float scale) {
+        if (world == null || world.width() <= 0 || world.height() <= 0) return null;
+        final float longest = Math.max(world.width(), world.height()) * scale;
+        if (longest > EXPORT_MAX_PX) scale *= EXPORT_MAX_PX / longest;
+        final int w = Math.max(1, Math.round(world.width() * scale));
+        final int h = Math.max(1, Math.round(world.height() * scale));
+        final Bitmap bmp;
+        try {
+            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
+        final Canvas c = new Canvas(bmp);
+        // An export is opaque: a PNG of a dark card on transparency looks like a
+        // rendering fault in every viewer that flattens onto white.
+        c.drawColor(cSurfaceVariant);
+        drawForExport(c, world, scale, 0L);
+        return bmp;
+    }
+
+    /** Render one card to a bitmap, padded, exactly as it is drawn on the canvas. */
+    public Bitmap renderCardBitmap(long cardId, float scale) {
+        final android.graphics.RectF b = cardBounds(cardId);
+        if (b == null) return null;
+        final float longest = Math.max(b.width(), b.height()) * scale;
+        if (longest > EXPORT_MAX_PX) scale *= EXPORT_MAX_PX / longest;
+        final int w = Math.max(1, Math.round(b.width() * scale));
+        final int h = Math.max(1, Math.round(b.height() * scale));
+        final Bitmap bmp;
+        try {
+            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
+        final Canvas c = new Canvas(bmp);
+        c.drawColor(cSurfaceVariant);
+        drawForExport(c, b, scale, cardId);
+        return bmp;
+    }
+
     public void setDocumentStyle(String docStyle) {
         applyCardStyle(docStyle == null || docStyle.isEmpty() ? themeAccent : docStyle);
         invalidate();
